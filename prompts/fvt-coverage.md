@@ -177,6 +177,41 @@ workspace root.
 
 ---
 
+## Model selection metadata
+
+The harness can use multiple Ollama models for different roles or tasks. Provide
+the list as a comma-separated string in the plan metadata or inputs. The first
+model is the default DOER model. Subsequent models may be assigned to specific
+tasks, for example the REVIEWER, or kept as a pool for parallel work.
+
+```yaml
+meta:
+  ollama_models: "codellama:7b,llama3.1:8b"
+```
+
+or
+
+```yaml
+inputs:
+  - name: ollama_models
+    type: string
+    value: "codellama:7b,llama3.1:8b"
+```
+
+Suggested convention for assigning models to tasks:
+
+- **DOER** — first model in the list (e.g. `codellama:7b`). Used to implement
+the FVT coverage plan and write tests.
+- **REVIEWER** — second model in the list (e.g. `llama3.1:8b`). Used to compare
+`coverage.json` against the previous iteration and decide whether the loop is
+done or stalled.
+- **Additional tasks** — further models may be used for other specialized
+roles such as planning, summarizing, or auditing.
+
+The shell scripts also read the environment variable `OLLAMA_MODELS`. For
+backwards compatibility, the deprecated `OLLAMA_MODEL` environment variable is
+accepted as a fallback when `OLLAMA_MODELS` is not set.
+
 ## PR creation metadata
 
 If you want the harness to open a GitHub pull request with the FVT changes,

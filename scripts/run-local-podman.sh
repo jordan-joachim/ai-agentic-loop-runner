@@ -7,7 +7,7 @@
 #
 # Required environment variables:
 #   OLLAMA_HOST       - URL of the Ollama server
-#   OLLAMA_MODEL      - Ollama model tag to use
+#   OLLAMA_MODELS     - comma-separated list of Ollama model tags to use
 #   OLLAMA_API_KEY    - API key for the Ollama server, if authentication is required
 #
 # Optional environment variables:
@@ -32,14 +32,14 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 IMAGE_TAG="agentic-loop-codeengine-samples-example:latest"
 WORKSPACE_DIR="${REPO_ROOT}/workspace"
 
-# Validate required environment variables
+# Validate required environment variables, falling back to deprecated OLLAMA_MODEL.
 if [ -z "${OLLAMA_HOST:-}" ]; then
   echo "[run-local-podman] ERROR: OLLAMA_HOST environment variable is required." >&2
   exit 1
 fi
 
-if [ -z "${OLLAMA_MODEL:-}" ]; then
-  echo "[run-local-podman] ERROR: OLLAMA_MODEL environment variable is required." >&2
+if [ -z "${OLLAMA_MODELS:-}" ] && [ -z "${OLLAMA_MODEL:-}" ]; then
+  echo "[run-local-podman] ERROR: OLLAMA_MODELS environment variable is required. (OLLAMA_MODEL is accepted as a deprecated fallback.)" >&2
   exit 1
 fi
 
@@ -47,6 +47,8 @@ if [ -z "${OLLAMA_API_KEY:-}" ]; then
   echo "[run-local-podman] ERROR: OLLAMA_API_KEY environment variable is required." >&2
   exit 1
 fi
+
+OLLAMA_MODELS="${OLLAMA_MODELS:-${OLLAMA_MODEL:-}}"
 
 echo "[run-local-podman] Building image ${IMAGE_TAG} with AGENT_RUNTIME=ollama-droid..."
 podman build \
@@ -75,7 +77,7 @@ eval "podman run --rm \
   ${SAMPLES_MOUNT} \
   -e HARNESS_AGENT_RUNTIME=ollama-droid \
   -e OLLAMA_HOST=\"${OLLAMA_HOST}\" \
-  -e OLLAMA_MODEL=\"${OLLAMA_MODEL}\" \
+  -e OLLAMA_MODELS=\"${OLLAMA_MODELS}\" \
   -e OLLAMA_API_KEY=\"${OLLAMA_API_KEY}\" \
   -e DROID_DOER_CONFIG=/workspace/.droids/ollama-droid.md \
   -e DROID_REVIEWER_CONFIG=/workspace/.droids/ollama-droid.md \

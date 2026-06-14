@@ -21,7 +21,7 @@ describe('run-local-podman script', () => {
         env: {
           ...process.env,
           OLLAMA_HOST: '',
-          OLLAMA_MODEL: 'codellama:7b',
+          OLLAMA_MODELS: 'codellama:7b',
           OLLAMA_API_KEY: 'test-key',
         },
       });
@@ -33,7 +33,7 @@ describe('run-local-podman script', () => {
     expect((error as Error).message).toContain('OLLAMA_HOST');
   });
 
-  it('fails when OLLAMA_MODEL is missing', () => {
+  it('fails when OLLAMA_MODELS and deprecated OLLAMA_MODEL are both missing', () => {
     let error: Error | undefined;
     try {
       execFileSync('bash', [SCRIPT_PATH], {
@@ -41,6 +41,7 @@ describe('run-local-podman script', () => {
         env: {
           ...process.env,
           OLLAMA_HOST: 'http://localhost:11434',
+          OLLAMA_MODELS: '',
           OLLAMA_MODEL: '',
           OLLAMA_API_KEY: 'test-key',
         },
@@ -50,7 +51,31 @@ describe('run-local-podman script', () => {
     }
 
     expect(error).toBeDefined();
-    expect((error as Error).message).toContain('OLLAMA_MODEL');
+    expect((error as Error).message).toMatch(/OLLAMA_MODELS|OLLAMA_MODEL/);
+  });
+
+  it('accepts the deprecated OLLAMA_MODEL fallback', () => {
+    let error: Error | undefined;
+    try {
+      execFileSync('bash', [SCRIPT_PATH], {
+        encoding: 'utf-8',
+        env: {
+          ...process.env,
+          OLLAMA_HOST: 'http://localhost:11434',
+          OLLAMA_MODELS: '',
+          OLLAMA_MODEL: 'codellama:7b',
+          OLLAMA_API_KEY: 'test-key',
+        },
+      });
+    } catch (err) {
+      error = err as Error;
+    }
+
+    // Podman is not available in test environment, so expect a build failure,
+    // not a validation failure about missing model variables.
+    expect(error).toBeDefined();
+    expect((error as Error).message).not.toContain('OLLAMA_MODELS');
+    expect((error as Error).message).not.toContain('OLLAMA_MODEL');
   });
 
   it('fails when OLLAMA_API_KEY is missing', () => {
@@ -61,7 +86,7 @@ describe('run-local-podman script', () => {
         env: {
           ...process.env,
           OLLAMA_HOST: 'http://localhost:11434',
-          OLLAMA_MODEL: 'codellama:7b',
+          OLLAMA_MODELS: 'codellama:7b',
           OLLAMA_API_KEY: '',
         },
       });
@@ -85,7 +110,7 @@ describe('run-local-podman script', () => {
 
     expect(content).toContain('HARNESS_AGENT_RUNTIME=ollama-droid');
     expect(content).toContain('OLLAMA_HOST');
-    expect(content).toContain('OLLAMA_MODEL');
+    expect(content).toContain('OLLAMA_MODELS');
     expect(content).toContain('OLLAMA_API_KEY');
     expect(content).toContain('DROID_DOER_CONFIG=/workspace/.droids/ollama-droid.md');
     expect(content).toContain('DROID_REVIEWER_CONFIG=/workspace/.droids/ollama-droid.md');

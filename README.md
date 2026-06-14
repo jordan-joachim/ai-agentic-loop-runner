@@ -56,7 +56,7 @@ are committed to the repository.
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `OLLAMA_HOST` | Yes | URL of the Ollama server, e.g. `http://host.containers.internal:11434` |
-| `OLLAMA_MODEL` | Yes | Model tag, e.g. `codellama:7b` |
+| `OLLAMA_MODELS` | Yes | Comma-separated list of Ollama model tags, e.g. `codellama:7b,llama3.1:8b` |
 | `OLLAMA_API_KEY` | Yes | API key for the Ollama server, if authentication is required |
 | `GITHUB_TOKEN` | No | GitHub token used by `scripts/create-pr.sh` to open a PR |
 | `GITHUB_REPO` | No | Target repository in `owner/repo` form for the PR (optional; also read from plan metadata or git remote) |
@@ -77,7 +77,7 @@ npm link @agentic-loop/harness
 
 # Mount a local clone of the Code Engine samples repo and run.
 export OLLAMA_HOST="http://host.containers.internal:11434"
-export OLLAMA_MODEL="codellama:7b"
+export OLLAMA_MODELS="codellama:7b,llama3.1:8b"
 export OLLAMA_API_KEY="your-ollama-api-key"
 export GITHUB_TOKEN="ghp_xxxxxxxxxxxx"      # optional, for PR creation
 export GITHUB_REPO="owner/code-engine-samples" # optional; also read from plan or git remote
@@ -88,6 +88,9 @@ export GITHUB_REPO="owner/code-engine-samples" # optional; also read from plan o
 The script builds the container with `AGENT_RUNTIME=ollama-droid`, mounts the
 workspace, Droid config, and credential environment variables, runs the harness,
 and then calls `scripts/create-pr.sh` when FVT changes exist.
+
+For backwards compatibility, `OLLAMA_MODEL` is still accepted as a fallback if
+`OLLAMA_MODELS` is not set, but `OLLAMA_MODELS` is the preferred variable.
 
 ### Manual build and run
 
@@ -100,9 +103,8 @@ podman run --rm \
   -v "/path/to/code-engine-samples:/workspace/inputs/code-engine-samples:Z" \
   -e HARNESS_AGENT_RUNTIME=ollama-droid \
   -e OLLAMA_HOST="$OLLAMA_HOST" \
-  -e OLLAMA_MODEL="$OLLAMA_MODEL" \
+  -e OLLAMA_MODELS="$OLLAMA_MODELS" \
   -e OLLAMA_API_KEY="$OLLAMA_API_KEY" \
-  -e DROID_DOER_CONFIG=/workspace/.droids/ollama-droid.md \
   -e DROID_REVIEWER_CONFIG=/workspace/.droids/ollama-droid.md \
   -e FVT_MAX_ITERATIONS=5 \
   agentic-loop-codeengine-samples-example:latest \
@@ -189,7 +191,8 @@ Never commit real credentials, tokens, or API keys to this repository.
 | Variable | Source | Purpose |
 |----------|--------|---------|
 | `OLLAMA_HOST` | `.droids/ollama.env` or shell env | Ollama server URL |
-| `OLLAMA_MODEL` | `.droids/ollama.env` or shell env | Ollama model tag |
+| `OLLAMA_MODELS` | `.droids/ollama.env` or shell env | Comma-separated list of Ollama model tags |
+| `OLLAMA_MODEL` | `.droids/ollama.env` or shell env | (deprecated) Single Ollama model tag; used as a fallback |
 | `OLLAMA_API_KEY` | `.droids/ollama.env` or shell env | API key for the Ollama server, if authentication is required |
 | `GITHUB_TOKEN` | GitHub personal access token | Push branch and open PR |
 | `GITHUB_REPO` | Repository slug (`owner/repo`) | Target repository for the PR (optional; also read from plan or git remote) |

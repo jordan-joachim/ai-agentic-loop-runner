@@ -34,8 +34,11 @@ describe('Droid / Ollama configuration', () => {
     }
 
     expect(content).toMatch(/OLLAMA_HOST\s*=/);
-    expect(content).toMatch(/OLLAMA_MODEL\s*=/);
+    expect(content).toMatch(/OLLAMA_MODELS\s*=/);
     expect(content).toMatch(/OLLAMA_API_KEY\s*=/);
+
+    // Deprecated fallback should not appear in the example env file.
+    expect(content).not.toMatch(/OLLAMA_MODEL\s*=/);
   });
 
   it('gitignore blocks the real env file and credential extensions', async () => {
