@@ -1,0 +1,27 @@
+meta:
+  title: FVT Coverage Plan for python-hello
+  version: '1'
+  author: sample-fvt-planner
+goal:
+  description: Achieve 100% FVT coverage for the python-hello sample
+  measurable: coverage_percent >= 100
+inputs:
+  - name: sample-source
+    type: directory
+    path: /home/joachim/Code/agentic-loop-codeengine-samples-example/tests/fixtures/samples/python-hello
+    description: Source code for the python-hello sample
+outputs:
+  - name: coverage-report
+    type: file
+    path: coverage.json
+    description: Coverage report in JSON format
+completion_criteria:
+  - id: CC-001
+    description: Coverage reaches 100%
+    test: coverage_percent >= 100
+  - id: CC-002
+    description: Coverage improvement stalls
+    test: coverage_delta_percent <= 5
+rules:
+  - rule_id: RULE-FVT-001
+    applies: true

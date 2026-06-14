@@ -1,0 +1,42 @@
+#!/usr/bin/env node
+
+/**
+ * bin/run-sample-fvt — CLI entry point for the example repository.
+ *
+ * Delegates to the agentic-loop harness `sample-fvt` subcommand so that
+ * the example repo reuses the harness implementation with minimal wiring.
+ *
+ * Usage:
+ *   run-sample-fvt --workspace <path> [--samples-dir <path>]
+ *
+ * Environment variables:
+ *   FVT_MAX_ITERATIONS       — max coverage loop iterations (default: 5)
+ *   FVT_TIME_LIMIT_MINUTES   — overall time limit in minutes (default: 120)
+ *   FVT_COVERAGE_THRESHOLD   — coverage percent threshold (default: 100)
+ *   FVT_COVERAGE_STALL_DELTA — stall detection delta (default: 5)
+ */
+
+import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Resolve the harness CLI inside the local node_modules.  If the example repo
+// is installed alongside the harness via file:../AgenticLoop, this will point
+// to the harness package entry point.
+const harnessPackageRoot = resolve(__dirname, '..', 'node_modules', 'agentic-loop');
+const harnessBin = resolve(harnessPackageRoot, 'bin', 'harness');
+
+const child = spawn(
+  process.execPath,
+  [harnessBin, 'sample-fvt', ...process.argv.slice(2)],
+  {
+    stdio: 'inherit',
+    env: process.env,
+  },
+);
+
+child.on('exit', (code) => {
+  process.exit(code ?? 1);
+});
