@@ -192,13 +192,11 @@ export class SampleFVTPlanner {
           description: 'Coverage report in JSON format',
         },
       ],
-      completion_criteria: sample.completion_criteria.map(
-        (cc: CompletionCriterion) => ({
-          id: cc.id,
-          description: cc.description,
-          test: cc.test,
-        }),
-      ),
+      completion_criteria: sample.completion_criteria.map((cc: CompletionCriterion) => ({
+        id: cc.id,
+        description: cc.description,
+        test: cc.test,
+      })),
       rules: [
         {
           rule_id: 'RULE-FVT-001',
@@ -217,7 +215,9 @@ export class SampleFVTPlanner {
    * 3. At least one source file with a recognized extension → `unknown`
    * 4. Otherwise → `null` (skip this directory)
    */
-  private async detectLanguage(samplePath: string): Promise<'nodejs' | 'python' | 'unknown' | null> {
+  private async detectLanguage(
+    samplePath: string,
+  ): Promise<'nodejs' | 'python' | 'unknown' | null> {
     let entries: Dirent[];
 
     try {
@@ -227,9 +227,7 @@ export class SampleFVTPlanner {
       return null;
     }
 
-    const fileNames = entries
-      .filter((e) => e.isFile())
-      .map((e) => e.name);
+    const fileNames = entries.filter((e) => e.isFile()).map((e) => e.name);
 
     // Check for package.json (Node.js)
     if (fileNames.includes('package.json')) {

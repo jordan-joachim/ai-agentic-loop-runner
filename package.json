@@ -15,10 +15,10 @@
     "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts'",
     "lint:fix": "eslint --fix 'src/**/*.ts' 'tests/**/*.ts'",
     "format": "prettier --write 'src/**/*.ts' 'tests/**/*.ts'",
-    "format:check": "prettier --check 'src/**/*.ts' 'tests/**/*.ts"
+    "format:check": "prettier --check 'src/**/*.ts' 'tests/**/*.ts'"
   },
   "dependencies": {
-    "agentic-loop": "file:../AgenticLoop",
+    "@agentic-loop/harness": "^0.1.0",
     "js-yaml": "^4.1.0"
   },
   "devDependencies": {

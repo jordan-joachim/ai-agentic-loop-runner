@@ -93,7 +93,11 @@ export class SampleFVTRunner {
 
     for (const sample of samples) {
       try {
-        const sampleResult = await this.runSampleLoop(sample.sampleName, sample.samplePath, outputDir);
+        const sampleResult = await this.runSampleLoop(
+          sample.sampleName,
+          sample.samplePath,
+          outputDir,
+        );
         results.push(sampleResult);
       } catch (err: unknown) {
         const message = (err as Error).message;

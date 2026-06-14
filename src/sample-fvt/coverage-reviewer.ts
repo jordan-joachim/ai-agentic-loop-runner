@@ -65,9 +65,10 @@ export class CoverageReviewer {
     const currentReport = await this.readCoverageReport(currentCoveragePath, 'current coverage');
 
     // Read previous coverage (optional — null means first iteration)
-    const previousReport = previousCoveragePath !== null
-      ? await this.readCoverageReport(previousCoveragePath, 'previous coverage')
-      : null;
+    const previousReport =
+      previousCoveragePath !== null
+        ? await this.readCoverageReport(previousCoveragePath, 'previous coverage')
+        : null;
 
     const currentPercent = currentReport.lines.percent;
     const previousPercent = previousReport?.lines.percent ?? 0;
@@ -77,7 +78,7 @@ export class CoverageReviewer {
     // Determine done status
     const reachedThreshold = currentPercent >= this.config.coverageThreshold;
     const stalled = deltaPercent <= this.config.coverageStallDelta;
-    const status: 'done' | 'incomplete' = (reachedThreshold || stalled) ? 'done' : 'incomplete';
+    const status: 'done' | 'incomplete' = reachedThreshold || stalled ? 'done' : 'incomplete';
 
     // Build gaps list
     const gaps = this.buildGaps(currentReport, status, reachedThreshold, stalled, deltaPercent);
@@ -104,33 +105,24 @@ export class CoverageReviewer {
    * @returns The parsed CoverageReport.
    * @throws If the file cannot be read or parsed.
    */
-  private async readCoverageReport(
-    filePath: string,
-    label: string,
-  ): Promise<CoverageReport> {
+  private async readCoverageReport(filePath: string, label: string): Promise<CoverageReport> {
     let raw: string;
     try {
       raw = await fs.readFile(filePath, 'utf-8');
     } catch (err: unknown) {
-      throw new Error(
-        `Failed to read ${label} file at "${filePath}": ${(err as Error).message}`,
-      );
+      throw new Error(`Failed to read ${label} file at "${filePath}": ${(err as Error).message}`);
     }
 
     let report: CoverageReport;
     try {
       report = JSON.parse(raw) as CoverageReport;
     } catch (err: unknown) {
-      throw new Error(
-        `Failed to parse ${label} file at "${filePath}": ${(err as Error).message}`,
-      );
+      throw new Error(`Failed to parse ${label} file at "${filePath}": ${(err as Error).message}`);
     }
 
     // Validate required fields exist
     if (!report.lines || typeof report.lines.percent !== 'number') {
-      throw new Error(
-        `${label} file at "${filePath}" is missing required "lines.percent" field`,
-      );
+      throw new Error(`${label} file at "${filePath}" is missing required "lines.percent" field`);
     }
 
     return report;
@@ -161,8 +153,8 @@ export class CoverageReviewer {
     if (status === 'done' && stalled && !reachedThreshold) {
       gaps.push(
         `Coverage improvement stalled: delta of ${deltaPercent}% is within the ` +
-        `${this.config.coverageStallDelta}% stall threshold. ` +
-        `Current coverage is ${report.lines.percent}% (threshold: ${this.config.coverageThreshold}%).`,
+          `${this.config.coverageStallDelta}% stall threshold. ` +
+          `Current coverage is ${report.lines.percent}% (threshold: ${this.config.coverageThreshold}%).`,
       );
     }
 
@@ -195,10 +187,7 @@ export class CoverageReviewer {
    * @param outputDir - Directory where review.yaml will be written.
    * @returns The absolute path to the written file.
    */
-  private async writeReviewYaml(
-    review: CoverageReview,
-    outputDir: string,
-  ): Promise<string> {
+  private async writeReviewYaml(review: CoverageReview, outputDir: string): Promise<string> {
     await fs.mkdir(outputDir, { recursive: true });
 
     const reviewYaml = {

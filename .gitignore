@@ -9,3 +9,6 @@ workspace/
 .idea/
 .vscode/
 tests/output/
+.droids/ollama.env
+*.key
+*.token

@@ -83,7 +83,9 @@ export class CoverageCalculator {
       const reqRaw = await fs.readFile(reqPath, 'utf-8');
       const lines = reqRaw.split('\n').map((l) => l.trim().toLowerCase());
 
-      const hasPytestCov = lines.some((l) => l.startsWith('pytest-cov') || l.startsWith('pytest-cov=='));
+      const hasPytestCov = lines.some(
+        (l) => l.startsWith('pytest-cov') || l.startsWith('pytest-cov=='),
+      );
       const hasCoverage = lines.some((l) => l.startsWith('coverage') || l.startsWith('coverage=='));
 
       if (hasPytestCov) return 'pytest-cov';
@@ -233,9 +235,7 @@ export class CoverageCalculator {
    * ```
    */
   private parseV8Coverage(stdout: string, sampleName: string, iteration: number): CoverageReport {
-    const allFilesLine = stdout
-      .split('\n')
-      .find((line) => line.trim().startsWith('All files'));
+    const allFilesLine = stdout.split('\n').find((line) => line.trim().startsWith('All files'));
 
     if (!allFilesLine) {
       return this.emptyReport(sampleName, iteration);
@@ -304,9 +304,7 @@ export class CoverageCalculator {
     iteration: number,
   ): CoverageReport {
     // Find the TOTAL line
-    const totalLine = stdout
-      .split('\n')
-      .find((line) => line.trim().startsWith('TOTAL'));
+    const totalLine = stdout.split('\n').find((line) => line.trim().startsWith('TOTAL'));
 
     if (!totalLine) {
       return this.emptyReport(sampleName, iteration);

@@ -3,7 +3,7 @@
 /**
  * bin/run-sample-fvt — CLI entry point for the example repository.
  *
- * Delegates to the agentic-loop harness `sample-fvt` subcommand so that
+ * Delegates to the @agentic-loop/harness `sample-fvt` subcommand so that
  * the example repo reuses the harness implementation with minimal wiring.
  *
  * Usage:
@@ -22,10 +22,9 @@ import { dirname, resolve } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Resolve the harness CLI inside the local node_modules.  If the example repo
-// is installed alongside the harness via file:../AgenticLoop, this will point
-// to the harness package entry point.
-const harnessPackageRoot = resolve(__dirname, '..', 'node_modules', 'agentic-loop');
+// Resolve the harness CLI inside the local node_modules.  Until the harness is
+// published to npm, link it locally with `npm link @agentic-loop/harness`.
+const harnessPackageRoot = resolve(__dirname, '..', 'node_modules', '@agentic-loop', 'harness');
 const harnessBin = resolve(harnessPackageRoot, 'bin', 'harness');
 
 const child = spawn(
