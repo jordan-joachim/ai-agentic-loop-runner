@@ -28,19 +28,57 @@ describe('create-pr script', () => {
     expect((error as Error).message).toContain('GITHUB_TOKEN');
   });
 
-  it('fails when GITHUB_REPO is missing', () => {
-    let error: Error | undefined;
-    try {
-      execFileSync('bash', [SCRIPT_PATH, '/tmp'], {
-        encoding: 'utf-8',
-        env: { ...process.env, GITHUB_TOKEN: 'ghp_test', GITHUB_REPO: '' },
-      });
-    } catch (err) {
-      error = err as Error;
-    }
+  it('resolves repo and branch from git remote when no env vars or plan are set', () => {
+    const repoDir = execFileSync('mktemp', ['-d'], { encoding: 'utf-8' }).trim();
+    execFileSync('git', ['init'], { cwd: repoDir });
+    execFileSync('git', ['remote', 'add', 'origin', 'https://github.com/example/repo.git'], {
+      cwd: repoDir,
+    });
+    execFileSync('git', ['config', 'user.email', 'test@example.local'], { cwd: repoDir });
+    execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: repoDir });
 
-    expect(error).toBeDefined();
-    expect((error as Error).message).toContain('GITHUB_REPO');
+    const workspaceDir = execFileSync('mktemp', ['-d'], { encoding: 'utf-8' }).trim();
+    execFileSync('mkdir', ['-p', `${workspaceDir}/inputs/code-engine-samples`]);
+    execFileSync('cp', ['-R', `${repoDir}/.`, `${workspaceDir}/inputs/code-engine-samples/`]);
+
+    // The script exits at the "nothing to commit" check before needing a real token.
+    const output = execFileSync('bash', [SCRIPT_PATH, workspaceDir], {
+      encoding: 'utf-8',
+      env: {
+        ...process.env,
+        GITHUB_TOKEN: 'ghp_test',
+        GITHUB_REPO: '',
+        GITHUB_BASE_BRANCH: '',
+      },
+    });
+
+    expect(output).toContain('No FVT changes to commit');
+  });
+
+  it('resolves repo and branch from the plan metadata when present', () => {
+    const repoDir = execFileSync('mktemp', ['-d'], { encoding: 'utf-8' }).trim();
+    execFileSync('git', ['init'], { cwd: repoDir });
+    execFileSync('git', ['remote', 'add', 'origin', 'https://github.com/example/repo.git'], {
+      cwd: repoDir,
+    });
+
+    const workspaceDir = execFileSync('mktemp', ['-d'], { encoding: 'utf-8' }).trim();
+    execFileSync('mkdir', ['-p', `${workspaceDir}/inputs/code-engine-samples`]);
+    execFileSync('cp', ['-R', `${repoDir}/.`, `${workspaceDir}/inputs/code-engine-samples/`]);
+    execFileSync('mkdir', ['-p', `${workspaceDir}/samples/foo`]);
+    execFileSync('bash', ['-c', `printf 'meta:\n  github_repo: plan-owner/plan-repo\n  github_base_branch: main\n' > "${workspaceDir}/samples/foo/plan.yaml"`]);
+
+    const output = execFileSync('bash', [SCRIPT_PATH, workspaceDir], {
+      encoding: 'utf-8',
+      env: {
+        ...process.env,
+        GITHUB_TOKEN: 'ghp_test',
+        GITHUB_REPO: '',
+        GITHUB_BASE_BRANCH: '',
+      },
+    });
+
+    expect(output).toContain('No FVT changes to commit');
   });
 
   it('contains a PR creation command', async () => {

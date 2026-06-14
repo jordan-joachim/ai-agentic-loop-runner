@@ -8,10 +8,12 @@
 # Required environment variables:
 #   OLLAMA_HOST       - URL of the Ollama server
 #   OLLAMA_MODEL      - Ollama model tag to use
+#   OLLAMA_API_KEY    - API key for the Ollama server, if authentication is required
 #
 # Optional environment variables:
 #   GITHUB_TOKEN      - GitHub token for PR creation
 #   GITHUB_REPO       - Target repository slug, e.g. "owner/repo"
+#   GITHUB_BASE_BRANCH - Base branch for the PR (default: master)
 #   FVT_MAX_ITERATIONS       - default: 5
 #   FVT_TIME_LIMIT_MINUTES   - default: 120
 #   FVT_COVERAGE_THRESHOLD   - default: 100
@@ -38,6 +40,11 @@ fi
 
 if [ -z "${OLLAMA_MODEL:-}" ]; then
   echo "[run-local-podman] ERROR: OLLAMA_MODEL environment variable is required." >&2
+  exit 1
+fi
+
+if [ -z "${OLLAMA_API_KEY:-}" ]; then
+  echo "[run-local-podman] ERROR: OLLAMA_API_KEY environment variable is required." >&2
   exit 1
 fi
 
@@ -69,6 +76,7 @@ eval "podman run --rm \
   -e HARNESS_AGENT_RUNTIME=ollama-droid \
   -e OLLAMA_HOST=\"${OLLAMA_HOST}\" \
   -e OLLAMA_MODEL=\"${OLLAMA_MODEL}\" \
+  -e OLLAMA_API_KEY=\"${OLLAMA_API_KEY}\" \
   -e DROID_DOER_CONFIG=/workspace/.droids/ollama-droid.md \
   -e DROID_REVIEWER_CONFIG=/workspace/.droids/ollama-droid.md \
   -e FVT_MAX_ITERATIONS=\"${FVT_MAX_ITERATIONS:-5}\" \
@@ -78,10 +86,10 @@ eval "podman run --rm \
   \"${IMAGE_TAG}\" \
   ${SAMPLES_ARG}"
 
-# After the harness loop finishes, create a PR if credentials and changes exist
-if [ -n "${GITHUB_TOKEN:-}" ] && [ -n "${GITHUB_REPO:-}" ]; then
+# After the harness loop finishes, create a PR if a GitHub token is present.
+if [ -n "${GITHUB_TOKEN:-}" ]; then
   echo "[run-local-podman] Checking for FVT changes to push..."
   "${SCRIPT_DIR}/create-pr.sh" "${WORKSPACE_DIR}"
 else
-  echo "[run-local-podman] GITHUB_TOKEN and/or GITHUB_REPO not set; skipping PR creation."
+  echo "[run-local-podman] GITHUB_TOKEN not set; skipping PR creation."
 fi

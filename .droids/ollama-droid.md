@@ -39,6 +39,7 @@ coverage task using an Ollama backend.
 
 - `OLLAMA_HOST` — URL of the Ollama server, e.g. `http://localhost:11434`.
 - `OLLAMA_MODEL` — model tag to use, e.g. `codellama:7b`.
+- `OLLAMA_API_KEY` — API key for the Ollama server, if authentication is required.
 - `DROID_DOER_CONFIG` — path to this file for the DOER invocation (optional).
 - `DROID_REVIEWER_CONFIG` — path to this file for the REVIEWER invocation
   (optional).

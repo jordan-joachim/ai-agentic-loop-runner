@@ -35,6 +35,7 @@ describe('Droid / Ollama configuration', () => {
 
     expect(content).toMatch(/OLLAMA_HOST\s*=/);
     expect(content).toMatch(/OLLAMA_MODEL\s*=/);
+    expect(content).toMatch(/OLLAMA_API_KEY\s*=/);
   });
 
   it('gitignore blocks the real env file and credential extensions', async () => {

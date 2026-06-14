@@ -57,8 +57,10 @@ are committed to the repository.
 |----------|----------|-------------|
 | `OLLAMA_HOST` | Yes | URL of the Ollama server, e.g. `http://host.containers.internal:11434` |
 | `OLLAMA_MODEL` | Yes | Model tag, e.g. `codellama:7b` |
+| `OLLAMA_API_KEY` | Yes | API key for the Ollama server, if authentication is required |
 | `GITHUB_TOKEN` | No | GitHub token used by `scripts/create-pr.sh` to open a PR |
-| `GITHUB_REPO` | No | Target repository in `owner/repo` form for the PR |
+| `GITHUB_REPO` | No | Target repository in `owner/repo` form for the PR (optional; also read from plan metadata or git remote) |
+| `GITHUB_BASE_BRANCH` | No | Base branch for the PR (default: `master`; also read from plan metadata) |
 
 Copy `.droids/ollama.env.example` to `.droids/ollama.env`, fill in real values,
 and source it before running the scripts. `.droids/ollama.env`, `*.key`, and
@@ -76,8 +78,9 @@ npm link @agentic-loop/harness
 # Mount a local clone of the Code Engine samples repo and run.
 export OLLAMA_HOST="http://host.containers.internal:11434"
 export OLLAMA_MODEL="codellama:7b"
+export OLLAMA_API_KEY="your-ollama-api-key"
 export GITHUB_TOKEN="ghp_xxxxxxxxxxxx"      # optional, for PR creation
-export GITHUB_REPO="owner/code-engine-samples" # optional, for PR creation
+export GITHUB_REPO="owner/code-engine-samples" # optional; also read from plan or git remote
 
 ./scripts/run-local-podman.sh /path/to/code-engine-samples/samples/ai
 ```
@@ -98,6 +101,7 @@ podman run --rm \
   -e HARNESS_AGENT_RUNTIME=ollama-droid \
   -e OLLAMA_HOST="$OLLAMA_HOST" \
   -e OLLAMA_MODEL="$OLLAMA_MODEL" \
+  -e OLLAMA_API_KEY="$OLLAMA_API_KEY" \
   -e DROID_DOER_CONFIG=/workspace/.droids/ollama-droid.md \
   -e DROID_REVIEWER_CONFIG=/workspace/.droids/ollama-droid.md \
   -e FVT_MAX_ITERATIONS=5 \
@@ -115,9 +119,13 @@ After the run finishes, `./workspace/` contains:
 - `result.yaml` — aggregated status across all samples.
 - `run.log` — harness execution log.
 
-If `GITHUB_TOKEN` and `GITHUB_REPO` are set and the harness produced FVT
-changes, `scripts/create-pr.sh` opens a pull request named
-`agentic-loop-fvt-{timestamp}` with the FVT test updates.
+If `GITHUB_TOKEN` is set and the harness produced FVT changes,
+`scripts/create-pr.sh` opens a pull request named `agentic-loop-fvt-{timestamp}`
+with the FVT test updates. The target repository and base branch are read from
+the plan metadata (or `github_repo` / `github_base_branch` inputs), from the
+optional `GITHUB_REPO` / `GITHUB_BASE_BRANCH` environment variables, or derived
+from the git origin remote of the mounted samples repo with base branch
+`master`.
 
 ## Phase 2: IBM Cloud Code Engine
 
@@ -182,8 +190,10 @@ Never commit real credentials, tokens, or API keys to this repository.
 |----------|--------|---------|
 | `OLLAMA_HOST` | `.droids/ollama.env` or shell env | Ollama server URL |
 | `OLLAMA_MODEL` | `.droids/ollama.env` or shell env | Ollama model tag |
+| `OLLAMA_API_KEY` | `.droids/ollama.env` or shell env | API key for the Ollama server, if authentication is required |
 | `GITHUB_TOKEN` | GitHub personal access token | Push branch and open PR |
-| `GITHUB_REPO` | Repository slug (`owner/repo`) | Target repository for the PR |
+| `GITHUB_REPO` | Repository slug (`owner/repo`) | Target repository for the PR (optional; also read from plan or git remote) |
+| `GITHUB_BASE_BRANCH` | Branch name | Base branch for the PR (default: `master`; also read from plan) |
 | `IBMCLOUD_API_KEY` | IBM Cloud API key | Phase 2 Code Engine provisioning |
 
 Provide these values by exporting them in your shell, sourcing `.droids/ollama.env`,

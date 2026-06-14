@@ -13,8 +13,10 @@ describe('README credentials section', () => {
     expect(content).toContain('Credentials');
     expect(content).toContain('OLLAMA_HOST');
     expect(content).toContain('OLLAMA_MODEL');
+    expect(content).toContain('OLLAMA_API_KEY');
     expect(content).toContain('GITHUB_TOKEN');
     expect(content).toContain('GITHUB_REPO');
+    expect(content).toContain('GITHUB_BASE_BRANCH');
     expect(content).toContain('IBMCLOUD_API_KEY');
     expect(content).toContain('environment variables');
   });

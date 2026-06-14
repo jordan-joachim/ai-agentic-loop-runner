@@ -177,6 +177,35 @@ workspace root.
 
 ---
 
+## PR creation metadata
+
+If you want the harness to open a GitHub pull request with the FVT changes,
+fill the following fields in the plan metadata or inputs:
+
+```yaml
+meta:
+  github_repo: "owner/code-engine-samples"
+  github_base_branch: "master"
+```
+
+or
+
+```yaml
+inputs:
+  - name: github_repo
+    type: string
+    value: "owner/code-engine-samples"
+  - name: github_base_branch
+    type: string
+    value: "master"
+```
+
+When `github_repo` and `github_base_branch` are not provided, the harness
+falls back to the optional `GITHUB_REPO` and `GITHUB_BASE_BRANCH` environment
+variables. If those are also unset, it derives the repository from the git
+origin remote of the mounted samples directory and defaults the base branch to
+`master`.
+
 ## Rules
 
 - Never commit credentials or secrets.

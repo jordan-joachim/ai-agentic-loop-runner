@@ -18,7 +18,12 @@ describe('run-local-podman script', () => {
     try {
       execFileSync('bash', [SCRIPT_PATH], {
         encoding: 'utf-8',
-        env: { ...process.env, OLLAMA_HOST: '', OLLAMA_MODEL: 'codellama:7b' },
+        env: {
+          ...process.env,
+          OLLAMA_HOST: '',
+          OLLAMA_MODEL: 'codellama:7b',
+          OLLAMA_API_KEY: 'test-key',
+        },
       });
     } catch (err) {
       error = err as Error;
@@ -33,7 +38,12 @@ describe('run-local-podman script', () => {
     try {
       execFileSync('bash', [SCRIPT_PATH], {
         encoding: 'utf-8',
-        env: { ...process.env, OLLAMA_HOST: 'http://localhost:11434', OLLAMA_MODEL: '' },
+        env: {
+          ...process.env,
+          OLLAMA_HOST: 'http://localhost:11434',
+          OLLAMA_MODEL: '',
+          OLLAMA_API_KEY: 'test-key',
+        },
       });
     } catch (err) {
       error = err as Error;
@@ -41,6 +51,26 @@ describe('run-local-podman script', () => {
 
     expect(error).toBeDefined();
     expect((error as Error).message).toContain('OLLAMA_MODEL');
+  });
+
+  it('fails when OLLAMA_API_KEY is missing', () => {
+    let error: Error | undefined;
+    try {
+      execFileSync('bash', [SCRIPT_PATH], {
+        encoding: 'utf-8',
+        env: {
+          ...process.env,
+          OLLAMA_HOST: 'http://localhost:11434',
+          OLLAMA_MODEL: 'codellama:7b',
+          OLLAMA_API_KEY: '',
+        },
+      });
+    } catch (err) {
+      error = err as Error;
+    }
+
+    expect(error).toBeDefined();
+    expect((error as Error).message).toContain('OLLAMA_API_KEY');
   });
 
   it('builds the image with the ollama-droid runtime', async () => {
@@ -56,6 +86,7 @@ describe('run-local-podman script', () => {
     expect(content).toContain('HARNESS_AGENT_RUNTIME=ollama-droid');
     expect(content).toContain('OLLAMA_HOST');
     expect(content).toContain('OLLAMA_MODEL');
+    expect(content).toContain('OLLAMA_API_KEY');
     expect(content).toContain('DROID_DOER_CONFIG=/workspace/.droids/ollama-droid.md');
     expect(content).toContain('DROID_REVIEWER_CONFIG=/workspace/.droids/ollama-droid.md');
     expect(content).toContain('-v');
