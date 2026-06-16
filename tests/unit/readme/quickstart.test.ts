@@ -27,33 +27,33 @@ describe('quickstart.md', () => {
     expect(content).toContain('IBMCLOUD_API_KEY');
   });
 
-  it('has a Phase 1 quickstart command block', async () => {
+  it('has a Quickstart — direct harness execution command block', async () => {
     const content = await fs.readFile(QUICKSTART_PATH, 'utf-8');
-    expect(content).toMatch(/## 3\.\s*Phase 1 quickstart/);
-    expect(content).toContain('setup-phase1.sh');
-    expect(content).toContain('run-phase1.sh');
+    expect(content).toMatch(/## 3\.\s*Quickstart — direct harness execution/);
+    expect(content).toContain('setup-direct.sh');
+    expect(content).toContain('run-direct.sh');
   });
 
-  it('has a Phase 2 quickstart command block', async () => {
+  it('has a Quickstart — local Podman command block', async () => {
     const content = await fs.readFile(QUICKSTART_PATH, 'utf-8');
-    expect(content).toMatch(/## 4\.\s*Phase 2 quickstart/);
-    expect(content).toContain('setup-phase2.sh');
-    expect(content).toContain('run-phase2.sh');
+    expect(content).toMatch(/## 4\.\s*Quickstart — local Podman/);
+    expect(content).toContain('setup-podman.sh');
+    expect(content).toContain('run-podman.sh');
   });
 
-  it('has a Phase 3 quickstart command block', async () => {
+  it('has a Quickstart — IBM Cloud Code Engine command block', async () => {
     const content = await fs.readFile(QUICKSTART_PATH, 'utf-8');
-    expect(content).toMatch(/## 5\.\s*Phase 3 quickstart/);
-    expect(content).toContain('setup-phase3.sh');
-    expect(content).toContain('run-phase3.sh');
+    expect(content).toMatch(/## 5\.\s*Quickstart — IBM Cloud Code Engine/);
+    expect(content).toContain('setup-codeengine.sh');
+    expect(content).toContain('run-codeengine.sh');
   });
 
   it('has a Watching logs section for each phase', async () => {
     const content = await fs.readFile(QUICKSTART_PATH, 'utf-8');
     expect(content).toMatch(/## 6\.\s*Watching logs/);
-    expect(content).toContain('watch-phase1.sh');
-    expect(content).toContain('watch-phase2.sh');
-    expect(content).toContain('watch-phase3.sh');
+    expect(content).toContain('watch-direct.sh');
+    expect(content).toContain('watch-podman.sh');
+    expect(content).toContain('watch-codeengine.sh');
   });
 
   it('has a Troubleshooting section', async () => {

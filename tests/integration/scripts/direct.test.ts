@@ -7,9 +7,9 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPT_DIR = path.resolve(__dirname, '..', '..', '..', 'scripts');
 const REPO_ROOT = path.resolve(SCRIPT_DIR, '..');
-const SETUP_SCRIPT = path.join(SCRIPT_DIR, 'setup-phase1.sh');
-const RUN_SCRIPT = path.join(SCRIPT_DIR, 'run-phase1.sh');
-const WATCH_SCRIPT = path.join(SCRIPT_DIR, 'watch-phase1.sh');
+const SETUP_SCRIPT = path.join(SCRIPT_DIR, 'setup-direct.sh');
+const RUN_SCRIPT = path.join(SCRIPT_DIR, 'run-direct.sh');
+const WATCH_SCRIPT = path.join(SCRIPT_DIR, 'watch-direct.sh');
 
 function runShellCheck(scriptPath: string): void {
   const output = execFileSync('bash', ['-n', scriptPath], { encoding: 'utf-8' });
@@ -37,7 +37,7 @@ function runScript(
   return { stdout, stderr, status };
 }
 
-describe('setup-phase1.sh', () => {
+describe('setup-direct.sh', () => {
   it('exists and is executable', () => {
     expect(fsSync.existsSync(SETUP_SCRIPT)).toBe(true);
     const stat = fsSync.statSync(SETUP_SCRIPT);
@@ -63,7 +63,7 @@ describe('setup-phase1.sh', () => {
   });
 });
 
-describe('run-phase1.sh', () => {
+describe('run-direct.sh', () => {
   it('exists and is executable', () => {
     expect(fsSync.existsSync(RUN_SCRIPT)).toBe(true);
     const stat = fsSync.statSync(RUN_SCRIPT);
@@ -130,11 +130,11 @@ describe('run-phase1.sh', () => {
 
   it('prints the watch command', () => {
     const content = fsSync.readFileSync(RUN_SCRIPT, 'utf-8');
-    expect(content).toContain('watch-phase1.sh');
+    expect(content).toContain('watch-direct.sh');
   });
 });
 
-describe('watch-phase1.sh', () => {
+describe('watch-direct.sh', () => {
   it('exists and is executable', () => {
     expect(fsSync.existsSync(WATCH_SCRIPT)).toBe(true);
     const stat = fsSync.statSync(WATCH_SCRIPT);

@@ -6,9 +6,9 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPT_DIR = path.resolve(__dirname, '..', '..', '..', 'scripts');
-const SETUP_SCRIPT = path.join(SCRIPT_DIR, 'setup-phase3.sh');
-const RUN_SCRIPT = path.join(SCRIPT_DIR, 'run-phase3.sh');
-const WATCH_SCRIPT = path.join(SCRIPT_DIR, 'watch-phase3.sh');
+const SETUP_SCRIPT = path.join(SCRIPT_DIR, 'setup-codeengine.sh');
+const RUN_SCRIPT = path.join(SCRIPT_DIR, 'run-codeengine.sh');
+const WATCH_SCRIPT = path.join(SCRIPT_DIR, 'watch-codeengine.sh');
 
 function runShellCheck(scriptPath: string): void {
   const output = execFileSync('bash', ['-n', scriptPath], { encoding: 'utf-8' });
@@ -36,7 +36,7 @@ function runScript(
   return { stdout, stderr, status };
 }
 
-describe('setup-phase3.sh', () => {
+describe('setup-codeengine.sh', () => {
   it('exists and is executable', () => {
     expect(fsSync.existsSync(SETUP_SCRIPT)).toBe(true);
     const stat = fsSync.statSync(SETUP_SCRIPT);
@@ -73,11 +73,11 @@ describe('setup-phase3.sh', () => {
   it('prints what was created or found', () => {
     const content = fsSync.readFileSync(SETUP_SCRIPT, 'utf-8');
     expect(content).toContain('already exists');
-    expect(content).toContain('Phase 3 setup complete');
+    expect(content).toContain('Code Engine setup complete');
   });
 });
 
-describe('run-phase3.sh', () => {
+describe('run-codeengine.sh', () => {
   it('exists and is executable', () => {
     expect(fsSync.existsSync(RUN_SCRIPT)).toBe(true);
     const stat = fsSync.statSync(RUN_SCRIPT);
@@ -115,11 +115,11 @@ describe('run-phase3.sh', () => {
 
   it('prints the watch command', () => {
     const content = fsSync.readFileSync(RUN_SCRIPT, 'utf-8');
-    expect(content).toContain('watch-phase3.sh');
+    expect(content).toContain('watch-codeengine.sh');
   });
 });
 
-describe('watch-phase3.sh', () => {
+describe('watch-codeengine.sh', () => {
   it('exists and is executable', () => {
     expect(fsSync.existsSync(WATCH_SCRIPT)).toBe(true);
     const stat = fsSync.statSync(WATCH_SCRIPT);

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# scripts/run-phase3.sh
+# scripts/run-codeengine.sh
 #
 # Upload the local plan and inputs to COS, then submit the Code Engine job.
 #
@@ -18,7 +18,7 @@
 #   HARNESS_TIME_LIMIT_MINUTES - override time limit minutes (default: 10)
 #
 # Usage:
-#   ./scripts/run-phase3.sh [prompt-file]
+#   ./scripts/run-codeengine.sh [prompt-file]
 #
 # The optional prompt-file argument overrides the default prompts/fvt-coverage.md.
 
@@ -28,11 +28,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 log() {
-  echo "[run-phase3] $*"
+  echo "[run-codeengine] $*"
 }
 
 error() {
-  echo "[run-phase3] ERROR: $*" >&2
+  echo "[run-codeengine] ERROR: $*" >&2
 }
 
 RESOURCE_GROUP="${CE_RESOURCE_GROUP:-agenticloop}"
@@ -96,5 +96,5 @@ fi
 ibmcloud ce jobrun submit "${args[@]}" > /dev/null
 
 log "Job run submitted: ${JOBRUN_NAME}"
-log "Watch logs with: ${SCRIPT_DIR}/watch-phase3.sh ${JOBRUN_NAME}"
+log "Watch logs with: ${SCRIPT_DIR}/watch-codeengine.sh ${JOBRUN_NAME}"
 log "Download results later with: ibmcloud cos objects --bucket ${COS_BUCKET}"

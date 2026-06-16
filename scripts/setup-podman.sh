@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 #
-# scripts/setup-phase2.sh
+# scripts/setup-podman.sh
 #
-# Prepare the example repository for Phase 2 local Podman execution.
+# Prepare the example repository for local Podman execution.
 # Idempotent: repeated runs rebuild the image only when sources changed.
 #
 # Required environment variables: none.
 #
 # Usage:
-#   ./scripts/setup-phase2.sh
+#   ./scripts/setup-podman.sh
 
 set -euo pipefail
 
@@ -18,11 +18,11 @@ WORKSPACE_DIR="${REPO_ROOT}/workspace"
 IMAGE_TAG="agentic-loop-codeengine-samples-example:latest"
 
 log() {
-  echo "[setup-phase2] $*"
+  echo "[setup-podman] $*"
 }
 
 error() {
-  echo "[setup-phase2] ERROR: $*" >&2
+  echo "[setup-podman] ERROR: $*" >&2
 }
 
 # ---- Validate Podman 5.x ----
@@ -53,7 +53,7 @@ fi
 # ---- Build image idempotently based on checksum ----
 CHECKSUM_DIR="${REPO_ROOT}/.cache"
 mkdir -p "${CHECKSUM_DIR}"
-CHECKSUM_FILE="${CHECKSUM_DIR}/setup-phase2.checksum"
+CHECKSUM_FILE="${CHECKSUM_DIR}/setup-podman.checksum"
 
 compute_checksum() {
   # Include Containerfile and files that affect the built image.
@@ -103,4 +103,4 @@ else
   log "Using existing image ${IMAGE_TAG}"
 fi
 
-log "Phase 2 setup complete: ${WORKSPACE_DIR}"
+log "Podman setup complete: ${WORKSPACE_DIR}"

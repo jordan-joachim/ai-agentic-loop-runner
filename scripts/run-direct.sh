@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# scripts/run-phase1.sh
+# scripts/run-direct.sh
 #
 # Run the harness directly against workspace/ without a container.
 #
@@ -8,7 +8,7 @@
 # For ollama-droid, requires OLLAMA_HOST, OLLAMA_MODELS, OLLAMA_API_KEY.
 #
 # Usage:
-#   ./scripts/run-phase1.sh [prompt-file]
+#   ./scripts/run-direct.sh [prompt-file]
 #
 # The optional prompt-file argument overrides the default prompts/fvt-coverage.md.
 
@@ -19,11 +19,11 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WORKSPACE_DIR="${REPO_ROOT}/workspace"
 
 log() {
-  echo "[run-phase1] $*"
+  echo "[run-direct] $*"
 }
 
 error() {
-  echo "[run-phase1] ERROR: $*" >&2
+  echo "[run-direct] ERROR: $*" >&2
 }
 
 HARNESS_AGENT_RUNTIME="${HARNESS_AGENT_RUNTIME:-mock}"
@@ -69,6 +69,6 @@ log "Wrote prompt to ${WORKSPACE_DIR}/plan.yaml"
 
 # ---- Run harness ----
 log "Running harness with runtime: ${HARNESS_AGENT_RUNTIME}"
-log "Watch logs with: ${SCRIPT_DIR}/watch-phase1.sh"
+log "Watch logs with: ${SCRIPT_DIR}/watch-direct.sh"
 
 node --no-warnings "${REPO_ROOT}/node_modules/.bin/harness" --workspace "${WORKSPACE_DIR}"

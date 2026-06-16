@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 #
-# scripts/setup-phase1.sh
+# scripts/setup-direct.sh
 #
-# Prepare the example repository for Phase 1 direct harness execution.
+# Prepare the example repository for direct harness execution.
 # Idempotent: repeated runs do not overwrite existing files.
 #
 # Required environment variables: none.
 #
 # Usage:
-#   ./scripts/setup-phase1.sh
+#   ./scripts/setup-direct.sh
 
 set -euo pipefail
 
@@ -17,11 +17,11 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WORKSPACE_DIR="${REPO_ROOT}/workspace"
 
 log() {
-  echo "[setup-phase1] $*"
+  echo "[setup-direct] $*"
 }
 
 error() {
-  echo "[setup-phase1] ERROR: $*" >&2
+  echo "[setup-direct] ERROR: $*" >&2
 }
 
 # ---- Validate Node.js 22+ ----
@@ -64,4 +64,4 @@ else
   log "workspace/plan.yaml already present"
 fi
 
-log "Phase 1 setup complete: ${WORKSPACE_DIR}"
+log "Direct setup complete: ${WORKSPACE_DIR}"

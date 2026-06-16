@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# scripts/setup-phase3.sh
+# scripts/setup-codeengine.sh
 #
-# Idempotently provision IBM Cloud Code Engine resources for Phase 3 execution.
+# Idempotently provision IBM Cloud Code Engine resources.
 #
 # Required environment variables:
 #   IBMCLOUD_API_KEY      - IBM Cloud API key
@@ -17,7 +17,7 @@
 #
 # Usage:
 #   export IBMCLOUD_API_KEY="your-api-key"
-#   ./scripts/setup-phase3.sh
+#   ./scripts/setup-codeengine.sh
 
 set -euo pipefail
 
@@ -38,16 +38,16 @@ CE_COS_SECRET_NAME="${CE_COS_SECRET_NAME:-agentic-loop-harness-cos-secret}"
 
 # ---- Validate credentials ----
 if [ -z "${IBMCLOUD_API_KEY:-}" ]; then
-  echo "[setup-phase3] ERROR: IBMCLOUD_API_KEY is required" >&2
+  echo "[setup-codeengine] ERROR: IBMCLOUD_API_KEY is required" >&2
   exit 1
 fi
 
 log() {
-  echo "[setup-phase3] $*"
+  echo "[setup-codeengine] $*"
 }
 
 error() {
-  echo "[setup-phase3] ERROR: $*" >&2
+  echo "[setup-codeengine] ERROR: $*" >&2
 }
 
 # ---- Ensure ibmcloud CLI is available ----
@@ -199,7 +199,7 @@ else
     --env-from-secret "${CE_COS_SECRET_NAME}" > /dev/null
 fi
 
-log "Phase 3 setup complete."
+log "Code Engine setup complete."
 log "  Project:        ${PROJECT_NAME}"
 log "  Resource group: ${RESOURCE_GROUP}"
 log "  Region:         ${REGION}"

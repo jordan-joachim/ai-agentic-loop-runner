@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 #
-# scripts/watch-phase2.sh
+# scripts/watch-podman.sh
 #
 # Watch the running Podman container and the workspace agent logs inside it.
 #
 # Usage:
-#   ./scripts/watch-phase2.sh
+#   ./scripts/watch-podman.sh
 
 set -euo pipefail
 
 if ! command -v podman > /dev/null 2>&1; then
-  echo "[watch-phase2] ERROR: podman is required but not found on PATH" >&2
+  echo "[watch-podman] ERROR: podman is required but not found on PATH" >&2
   exit 1
 fi
 
 if ! podman container exists agentic-loop-fvt 2>/dev/null; then
-  echo "[watch-phase2] ERROR: container agentic-loop-fvt is not running" >&2
+  echo "[watch-podman] ERROR: container agentic-loop-fvt is not running" >&2
   exit 1
 fi
 

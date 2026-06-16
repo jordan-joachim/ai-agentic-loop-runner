@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
-# scripts/watch-phase1.sh
+# scripts/watch-direct.sh
 #
-# Tail the Phase 1 workspace harness log and per-iteration agent logs.
+# Tail the direct workspace harness log and per-iteration agent logs.
 #
 # Usage:
-#   ./scripts/watch-phase1.sh
+#   ./scripts/watch-direct.sh
 
 set -euo pipefail
 
@@ -14,7 +14,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WORKSPACE_DIR="${REPO_ROOT}/workspace"
 
 if [ ! -d "${WORKSPACE_DIR}" ]; then
-  echo "[watch-phase1] Workspace does not exist: ${WORKSPACE_DIR}" >&2
+  echo "[watch-direct] Workspace does not exist: ${WORKSPACE_DIR}" >&2
   exit 1
 fi
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# scripts/watch-phase3.sh
+# scripts/watch-codeengine.sh
 #
 # Follow the logs of a running Code Engine job run and print COS download instructions.
 #
@@ -15,7 +15,7 @@
 #   COS_BUCKET            - COS bucket name (optional; only needed to download results)
 #
 # Usage:
-#   ./scripts/watch-phase3.sh [job-run-name]
+#   ./scripts/watch-codeengine.sh [job-run-name]
 #
 # If no job-run-name is provided, uses the most recent job run for the job.
 
@@ -24,11 +24,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 log() {
-  echo "[watch-phase3] $*"
+  echo "[watch-codeengine] $*"
 }
 
 error() {
-  echo "[watch-phase3] ERROR: $*" >&2
+  echo "[watch-codeengine] ERROR: $*" >&2
 }
 
 RESOURCE_GROUP="${CE_RESOURCE_GROUP:-agenticloop}"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# scripts/run-phase2.sh
+# scripts/run-podman.sh
 #
 # Run the sample-fvt example in a local Podman container.
 #
@@ -20,7 +20,7 @@
 #   FVT_TAIL_LOGS            - set to "true" to tail container logs in the background
 #
 # Usage:
-#   ./scripts/run-phase2.sh [prompt-file]
+#   ./scripts/run-podman.sh [prompt-file]
 #
 # The optional prompt-file argument overrides the default prompts/fvt-coverage.md.
 
@@ -32,11 +32,11 @@ IMAGE_TAG="agentic-loop-codeengine-samples-example:latest"
 WORKSPACE_DIR="${REPO_ROOT}/workspace"
 
 log() {
-  echo "[run-phase2] $*"
+  echo "[run-podman] $*"
 }
 
 error() {
-  echo "[run-phase2] ERROR: $*" >&2
+  echo "[run-podman] ERROR: $*" >&2
 }
 
 PROMPT_FILE="${1:-${REPO_ROOT}/prompts/fvt-coverage.md}"
@@ -84,7 +84,7 @@ fi
 
 log "Running image ${IMAGE_TAG} with AGENT_RUNTIME=ollama-droid..."
 log "Follow container logs live with: podman logs -f agentic-loop-fvt"
-log "Tail workspace agent logs with: ${SCRIPT_DIR}/watch-phase2.sh"
+log "Tail workspace agent logs with: ${SCRIPT_DIR}/watch-podman.sh"
 
 # ---- Optionally start a background log tail before the container runs ----
 if [ "${FVT_TAIL_LOGS:-false}" = "true" ]; then
