@@ -2,12 +2,23 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import yaml from 'js-yaml';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROMPT_PATH = path.resolve(__dirname, '..', '..', '..', 'prompts', 'fvt-coverage.md');
+const PLAN_PATH = path.resolve(__dirname, '..', '..', '..', 'prompts', 'fvt-coverage.yaml');
 
 async function readPrompt(): Promise<string> {
   return fs.readFile(PROMPT_PATH, 'utf-8');
+}
+
+async function readPlan(): Promise<Record<string, unknown>> {
+  const content = await fs.readFile(PLAN_PATH, 'utf-8');
+  const parsed = yaml.load(content);
+  if (parsed === undefined || parsed === null) {
+    throw new Error('fvt-coverage.yaml is empty or contains no YAML document');
+  }
+  return parsed as Record<string, unknown>;
 }
 
 describe('FVT coverage prompt (VAL-EXAMPLE-001)', () => {
@@ -114,5 +125,106 @@ describe('FVT coverage prompt (VAL-EXAMPLE-001)', () => {
     const content = await readPrompt();
     expect(content).toContain('gaps');
     expect(content).toContain('uncovered');
+  });
+});
+
+describe('FVT coverage YAML plan (VAL-EXAMPLE-002)', () => {
+  it('exists and is non-empty', async () => {
+    const stats = await fs.stat(PLAN_PATH);
+    expect(stats.isFile()).toBe(true);
+    expect(stats.size).toBeGreaterThan(0);
+  });
+
+  it('parses as valid YAML', async () => {
+    const plan = await readPlan();
+    expect(typeof plan).toBe('object');
+  });
+
+  it('has required meta fields', async () => {
+    const plan = await readPlan();
+    expect(plan.meta).toMatchObject({
+      title: expect.any(String),
+      version: expect.any(String),
+      author: expect.any(String),
+    });
+  });
+
+  it('has a goal with description and measurable fields', async () => {
+    const plan = await readPlan();
+    expect(plan.goal).toMatchObject({
+      description: expect.any(String),
+      measurable: expect.any(String),
+    });
+    expect(String((plan.goal as Record<string, unknown>).description).length).toBeGreaterThan(0);
+    expect(String((plan.goal as Record<string, unknown>).measurable).length).toBeGreaterThan(0);
+  });
+
+  it('has at least one inputs entry with required fields', async () => {
+    const plan = await readPlan();
+    expect(Array.isArray(plan.inputs)).toBe(true);
+    expect((plan.inputs as Record<string, unknown>[]).length).toBeGreaterThan(0);
+    for (const input of plan.inputs as Record<string, unknown>[]) {
+      expect(input).toMatchObject({
+        name: expect.any(String),
+        type: expect.any(String),
+        description: expect.any(String),
+      });
+      if ((input.type as string) !== 'string') {
+        expect(input).toHaveProperty('path');
+        expect(typeof input.path).toBe('string');
+      }
+    }
+  });
+
+  it('has at least one outputs entry with required fields', async () => {
+    const plan = await readPlan();
+    expect(Array.isArray(plan.outputs)).toBe(true);
+    expect((plan.outputs as Record<string, unknown>[]).length).toBeGreaterThan(0);
+    for (const output of plan.outputs as Record<string, unknown>[]) {
+      expect(output).toMatchObject({
+        name: expect.any(String),
+        type: expect.any(String),
+        path: expect.any(String),
+        description: expect.any(String),
+      });
+    }
+  });
+
+  it('has completion criteria matching CC-001 and CC-002', async () => {
+    const plan = await readPlan();
+    expect(Array.isArray(plan.completion_criteria)).toBe(true);
+    const criteria = plan.completion_criteria as Record<string, unknown>[];
+    expect(criteria).toHaveLength(3);
+    expect(criteria[0]).toMatchObject({
+      id: 'CC-001',
+      description: 'Coverage reaches 100%',
+      test: 'coverage_percent >= 100',
+    });
+    expect(criteria[1]).toMatchObject({
+      id: 'CC-002',
+      description: 'Coverage improvement stalls',
+      test: 'coverage_delta_percent <= 5',
+    });
+  });
+
+  it('has rules referencing applicable rule IDs', async () => {
+    const plan = await readPlan();
+    expect(Array.isArray(plan.rules)).toBe(true);
+    const rules = plan.rules as Record<string, unknown>[];
+    expect(rules.length).toBeGreaterThan(0);
+    for (const rule of rules) {
+      expect(rule).toHaveProperty('rule_id');
+      expect(rule).toHaveProperty('applies');
+      expect(typeof rule.rule_id).toBe('string');
+      expect(typeof rule.applies).toBe('boolean');
+    }
+  });
+
+  it('embeds the key FVT coverage instructions in the goal', async () => {
+    const plan = await readPlan();
+    const description = String((plan.goal as Record<string, unknown>).description);
+    expect(description).toContain('IBM CodeEngine');
+    expect(description).toContain('samples/ai');
+    expect(description).toContain('coverage');
   });
 });

@@ -1,0 +1,65 @@
+meta:
+  title: FVT Coverage Plan
+  version: "1"
+  author: agentic-harness
+
+goal:
+  description: >
+    Instruct the DOER and REVIEWER agents to download the IBM CodeEngine
+    samples/ai repository, discover every sample project, write or extend FVT
+    tests, run them with coverage, and loop until coverage reaches 100% or the
+    per-sample improvement between iterations stalls at 5% or less.
+  measurable: coverage_percent >= 100 or coverage_delta_percent <= 5
+
+inputs:
+  - name: code_engine_samples
+    type: url
+    path: https://github.com/IBM/CodeEngine.git
+    description: IBM CodeEngine samples repository containing samples/ai projects
+  - name: prompt
+    type: file
+    path: prompts/fvt-coverage.md
+    description: Original Markdown prompt used to derive this plan
+  - name: ollama_models
+    type: string
+    value: ""
+    description: Optional comma-separated list of Ollama model tags (DOER first, REVIEWER second)
+  - name: github_repo
+    type: string
+    value: ""
+    description: Optional owner/repo slug for PR creation
+  - name: github_base_branch
+    type: string
+    value: master
+    description: Optional base branch for PR creation
+
+outputs:
+  - name: result
+    type: file
+    path: result.yaml
+    description: Aggregated harness result with status and iteration counts
+  - name: coverage_reports
+    type: directory
+    path: samples
+    description: Per-sample coverage.json files produced by the DOER
+  - name: review_reports
+    type: directory
+    path: samples
+    description: Per-sample review.yaml files produced by the REVIEWER
+
+completion_criteria:
+  - id: CC-001
+    description: Coverage reaches 100%
+    test: coverage_percent >= 100
+  - id: CC-002
+    description: Coverage improvement stalls
+    test: coverage_delta_percent <= 5
+  - id: CC-003
+    description: Tests pass after coverage changes
+    test: npm test exits 0
+
+rules:
+  - rule_id: RULE-001
+    applies: true
+  - rule_id: RULE-002
+    applies: true
