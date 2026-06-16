@@ -113,6 +113,13 @@ describe('run-codeengine.sh', () => {
     expect(content).toContain('agentic-loop-run');
   });
 
+  it('generates a harness-compatible plan.yaml from the prompt before upload', () => {
+    const content = fsSync.readFileSync(RUN_SCRIPT, 'utf-8');
+    expect(content).toContain('generate-plan.js');
+    expect(content).toContain('--body "${PLAN_SOURCE}"');
+    expect(content).not.toContain('--body "${PROMPT_FILE}"');
+  });
+
   it('prints the watch command', () => {
     const content = fsSync.readFileSync(RUN_SCRIPT, 'utf-8');
     expect(content).toContain('watch-codeengine.sh');

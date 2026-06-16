@@ -108,6 +108,12 @@ describe('run-podman.sh', () => {
     expect(content).toContain('podman run');
   });
 
+  it('generates a harness-compatible plan.yaml from the prompt', () => {
+    const content = fsSync.readFileSync(RUN_SCRIPT, 'utf-8');
+    expect(content).toContain('generate-plan.js');
+    expect(content).not.toContain('cp "${PROMPT_FILE}" "${WORKSPACE_DIR}/plan.yaml"');
+  });
+
   it('prints the watch command', () => {
     const content = fsSync.readFileSync(RUN_SCRIPT, 'utf-8');
     expect(content).toContain('watch-podman.sh');

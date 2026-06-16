@@ -72,8 +72,8 @@ if [ ! -f "${PROMPT_FILE}" ]; then
   exit 1
 fi
 
-# ---- Copy prompt into workspace as plan.yaml ----
-cp "${PROMPT_FILE}" "${WORKSPACE_DIR}/plan.yaml"
+# ---- Generate a harness-compatible plan.yaml from the prompt ----
+node --no-warnings "${SCRIPT_DIR}/generate-plan.js" "${PROMPT_FILE}" "${WORKSPACE_DIR}/plan.yaml"
 log "Wrote prompt to ${WORKSPACE_DIR}/plan.yaml"
 
 # ---- Stop and remove any existing container with the same name ----

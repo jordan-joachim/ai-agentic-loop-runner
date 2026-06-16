@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import * as fsSync from 'node:fs';
+import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import yaml from 'js-yaml';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPT_DIR = path.resolve(__dirname, '..', '..', '..', 'scripts');
@@ -10,7 +12,6 @@ const REPO_ROOT = path.resolve(SCRIPT_DIR, '..');
 const SETUP_SCRIPT = path.join(SCRIPT_DIR, 'setup-direct.sh');
 const RUN_SCRIPT = path.join(SCRIPT_DIR, 'run-direct.sh');
 const WATCH_SCRIPT = path.join(SCRIPT_DIR, 'watch-direct.sh');
-
 function runShellCheck(scriptPath: string): void {
   const output = execFileSync('bash', ['-n', scriptPath], { encoding: 'utf-8' });
   expect(output).toBe('');
@@ -60,6 +61,24 @@ describe('setup-direct.sh', () => {
     runScript(SETUP_SCRIPT);
     expect(fsSync.existsSync(path.join(REPO_ROOT, 'workspace', 'plan.yaml'))).toBe(true);
     expect(fsSync.existsSync(path.join(REPO_ROOT, 'workspace', '.droids', 'ollama-droid.md'))).toBe(true);
+  });
+
+  it('seeds a valid harness plan.yaml', async () => {
+    runScript(SETUP_SCRIPT);
+    const planPath = path.join(REPO_ROOT, 'workspace', 'plan.yaml');
+    const content = await fs.readFile(planPath, 'utf-8');
+    const parsed = yaml.load(content) as Record<string, unknown>;
+    expect(parsed.meta).toMatchObject({
+      title: 'FVT Coverage Run',
+      version: '1',
+      author: 'agentic-harness',
+    });
+    expect(typeof (parsed.goal as Record<string, unknown>).description).toBe('string');
+    expect((parsed.goal as Record<string, unknown>).description).toContain('FVT Coverage Plan');
+    expect(Array.isArray(parsed.inputs)).toBe(true);
+    expect(Array.isArray(parsed.outputs)).toBe(true);
+    expect(Array.isArray(parsed.completion_criteria)).toBe(true);
+    expect(Array.isArray(parsed.rules)).toBe(true);
   });
 });
 
@@ -126,6 +145,37 @@ describe('run-direct.sh', () => {
     // The harness binary is not expected to exist in this path in tests, so it fails later.
     expect(result.stderr + result.stdout).not.toContain('OLLAMA_MODELS');
     expect(result.stderr + result.stdout).not.toContain('OLLAMA_MODEL is required');
+  });
+
+  it('generates a valid plan.yaml before invoking the harness', () => {
+    const planPath = path.join(REPO_ROOT, 'workspace', 'plan.yaml');
+    try {
+      fsSync.rmSync(planPath, { force: true });
+    } catch {
+      // ignore
+    }
+
+    const result = runScript(RUN_SCRIPT, [], {
+      HARNESS_AGENT_RUNTIME: 'mock',
+    });
+
+    expect(fsSync.existsSync(planPath)).toBe(true);
+    const content = fsSync.readFileSync(planPath, 'utf-8');
+    const parsed = yaml.load(content) as Record<string, unknown>;
+    expect(parsed.meta).toMatchObject({
+      title: 'FVT Coverage Run',
+      version: '1',
+      author: 'agentic-harness',
+    });
+    expect(typeof (parsed.goal as Record<string, unknown>).description).toBe('string');
+    expect((parsed.goal as Record<string, unknown>).description).toContain('FVT Coverage Plan');
+    expect(Array.isArray(parsed.inputs)).toBe(true);
+    expect(Array.isArray(parsed.outputs)).toBe(true);
+    expect(Array.isArray(parsed.completion_criteria)).toBe(true);
+    expect(Array.isArray(parsed.rules)).toBe(true);
+
+    // Should not see the original "Malformed YAML" error from the harness.
+    expect(result.stderr + result.stdout).not.toContain('Malformed YAML');
   });
 
   it('prints the watch command', () => {

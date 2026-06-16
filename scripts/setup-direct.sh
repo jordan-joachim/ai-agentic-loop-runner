@@ -56,10 +56,19 @@ else
   log "workspace/.droids/ollama-droid.md already present"
 fi
 
-# ---- Seed workspace plan.yaml if missing ----
+# ---- Seed workspace plan.yaml if missing or stale ----
+PLAN_NEEDS_REGEN="false"
 if [ ! -f "${WORKSPACE_DIR}/plan.yaml" ]; then
-  cp "${REPO_ROOT}/prompts/fvt-coverage.md" "${WORKSPACE_DIR}/plan.yaml"
-  log "Copied prompts/fvt-coverage.md to workspace/plan.yaml"
+  PLAN_NEEDS_REGEN="true"
+# Re-generate if the existing plan.yaml is the legacy Markdown prompt
+# (does not begin with the harness plan meta section).
+elif [ "$(head -n1 "${WORKSPACE_DIR}/plan.yaml")" != "meta:" ]; then
+  PLAN_NEEDS_REGEN="true"
+fi
+
+if [ "${PLAN_NEEDS_REGEN}" = "true" ]; then
+  node --no-warnings "${SCRIPT_DIR}/generate-plan.js" "${REPO_ROOT}/prompts/fvt-coverage.md" "${WORKSPACE_DIR}/plan.yaml"
+  log "Generated workspace/plan.yaml from prompts/fvt-coverage.md"
 else
   log "workspace/plan.yaml already present"
 fi

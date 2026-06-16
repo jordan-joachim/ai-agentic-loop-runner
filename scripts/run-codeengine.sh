@@ -64,12 +64,18 @@ log "Logging in to IBM Cloud..."
 ibmcloud login --apikey "${IBMCLOUD_API_KEY}" -r "${REGION}" -g "${RESOURCE_GROUP}" > /dev/null
 ibmcloud ce project select --name "${PROJECT_NAME}" > /dev/null
 
+WORKSPACE_DIR="${REPO_ROOT}/workspace"
+PLAN_SOURCE="${WORKSPACE_DIR}/plan.yaml"
+
+# ---- Generate a harness-compatible plan.yaml from the prompt ----
+node --no-warnings "${SCRIPT_DIR}/generate-plan.js" "${PROMPT_FILE}" "${PLAN_SOURCE}"
+log "Generated plan.yaml from ${PROMPT_FILE}"
+
 # ---- Upload plan.yaml and any inputs to COS ----
 log "Uploading plan.yaml to cos://${COS_BUCKET}/plan.yaml"
-ibmcloud cos object-put --bucket "${COS_BUCKET}" --key plan.yaml --body "${PROMPT_FILE}" > /dev/null
+ibmcloud cos object-put --bucket "${COS_BUCKET}" --key plan.yaml --body "${PLAN_SOURCE}" > /dev/null
 
 # Upload inputs/ if present in the workspace
-WORKSPACE_DIR="${REPO_ROOT}/workspace"
 if [ -d "${WORKSPACE_DIR}/inputs" ]; then
   log "Uploading inputs/ prefix..."
   while IFS= read -r -d '' file; do
