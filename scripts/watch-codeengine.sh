@@ -24,8 +24,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-# ---- Load optional .env from repo root ----
-if [ -f "${REPO_ROOT}/.env" ]; then
+# ---- Load optional .env from repo root unless disabled ----
+if [ "${AGENTIC_NO_DOTENV:-false}" != "true" ] && [ -f "${REPO_ROOT}/.env" ]; then
   set -a
   # shellcheck source=/dev/null
   source "${REPO_ROOT}/.env"

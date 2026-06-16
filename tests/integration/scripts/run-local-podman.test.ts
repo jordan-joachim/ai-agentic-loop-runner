@@ -20,6 +20,7 @@ describe('run-local-podman script', () => {
         encoding: 'utf-8',
         env: {
           ...process.env,
+          AGENTIC_NO_DOTENV: 'true',
           OLLAMA_HOST: '',
           OLLAMA_MODELS: 'codellama:7b',
           OLLAMA_API_KEY: 'test-key',
@@ -40,6 +41,7 @@ describe('run-local-podman script', () => {
         encoding: 'utf-8',
         env: {
           ...process.env,
+          AGENTIC_NO_DOTENV: 'true',
           OLLAMA_HOST: 'http://localhost:11434',
           OLLAMA_MODELS: '',
           OLLAMA_MODEL: '',
@@ -62,6 +64,7 @@ describe('run-local-podman script', () => {
         timeout: 5000,
         env: {
           ...process.env,
+          AGENTIC_NO_DOTENV: 'true',
           OLLAMA_HOST: 'http://localhost:11434',
           OLLAMA_MODELS: '',
           OLLAMA_MODEL: 'codellama:7b',
@@ -87,6 +90,7 @@ describe('run-local-podman script', () => {
         encoding: 'utf-8',
         env: {
           ...process.env,
+          AGENTIC_NO_DOTENV: 'true',
           OLLAMA_HOST: 'http://localhost:11434',
           OLLAMA_MODELS: 'codellama:7b',
           OLLAMA_API_KEY: '',

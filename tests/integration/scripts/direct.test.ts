@@ -95,6 +95,7 @@ describe('run-direct.sh', () => {
 
   it('validates unsupported runtime', () => {
     const result = runScript(RUN_SCRIPT, [], {
+      AGENTIC_NO_DOTENV: 'true',
       HARNESS_AGENT_RUNTIME: 'unsupported',
     });
     expect(result.status).not.toBe(0);
@@ -103,6 +104,7 @@ describe('run-direct.sh', () => {
 
   it('validates missing OLLAMA_HOST for ollama-droid', () => {
     const result = runScript(RUN_SCRIPT, [], {
+      AGENTIC_NO_DOTENV: 'true',
       HARNESS_AGENT_RUNTIME: 'ollama-droid',
       OLLAMA_HOST: '',
       OLLAMA_MODELS: 'codellama:7b',
@@ -114,6 +116,7 @@ describe('run-direct.sh', () => {
 
   it('validates missing OLLAMA_MODELS for ollama-droid', () => {
     const result = runScript(RUN_SCRIPT, [], {
+      AGENTIC_NO_DOTENV: 'true',
       HARNESS_AGENT_RUNTIME: 'ollama-droid',
       OLLAMA_HOST: 'http://localhost:11434',
       OLLAMA_MODELS: '',
@@ -125,6 +128,7 @@ describe('run-direct.sh', () => {
 
   it('validates missing OLLAMA_API_KEY for ollama-droid', () => {
     const result = runScript(RUN_SCRIPT, [], {
+      AGENTIC_NO_DOTENV: 'true',
       HARNESS_AGENT_RUNTIME: 'ollama-droid',
       OLLAMA_HOST: 'http://localhost:11434',
       OLLAMA_MODELS: 'codellama:7b',

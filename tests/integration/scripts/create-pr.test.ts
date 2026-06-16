@@ -18,7 +18,12 @@ describe('create-pr script', () => {
     try {
       execFileSync('bash', [SCRIPT_PATH, '/tmp'], {
         encoding: 'utf-8',
-        env: { ...process.env, GITHUB_TOKEN: '', GITHUB_REPO: 'owner/repo' },
+        env: {
+          ...process.env,
+          AGENTIC_NO_DOTENV: 'true',
+          GITHUB_TOKEN: '',
+          GITHUB_REPO: 'owner/repo',
+        },
       });
     } catch (err) {
       error = err as Error;
@@ -46,6 +51,7 @@ describe('create-pr script', () => {
       encoding: 'utf-8',
       env: {
         ...process.env,
+        AGENTIC_NO_DOTENV: 'true',
         GITHUB_TOKEN: 'ghp_test',
         GITHUB_REPO: '',
         GITHUB_BASE_BRANCH: '',
@@ -72,6 +78,7 @@ describe('create-pr script', () => {
       encoding: 'utf-8',
       env: {
         ...process.env,
+        AGENTIC_NO_DOTENV: 'true',
         GITHUB_TOKEN: 'ghp_test',
         GITHUB_REPO: '',
         GITHUB_BASE_BRANCH: '',

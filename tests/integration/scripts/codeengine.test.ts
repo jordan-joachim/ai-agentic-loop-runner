@@ -90,6 +90,7 @@ describe('run-codeengine.sh', () => {
 
   it('fails when IBMCLOUD_API_KEY is missing', () => {
     const result = runScript(RUN_SCRIPT, [], {
+      AGENTIC_NO_DOTENV: 'true',
       IBMCLOUD_API_KEY: '',
       COS_BUCKET: 'test-bucket',
     });
@@ -99,6 +100,7 @@ describe('run-codeengine.sh', () => {
 
   it('fails when COS_BUCKET is missing', () => {
     const result = runScript(RUN_SCRIPT, [], {
+      AGENTIC_NO_DOTENV: 'true',
       IBMCLOUD_API_KEY: 'fake-key',
       COS_BUCKET: '',
     });

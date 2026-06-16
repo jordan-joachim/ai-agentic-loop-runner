@@ -68,6 +68,7 @@ describe('run-podman.sh', () => {
 
   it('validates missing OLLAMA_HOST', () => {
     const result = runScript(RUN_SCRIPT, [], {
+      AGENTIC_NO_DOTENV: 'true',
       OLLAMA_HOST: '',
       OLLAMA_MODELS: 'codellama:7b',
       OLLAMA_API_KEY: 'test-key',
@@ -78,6 +79,7 @@ describe('run-podman.sh', () => {
 
   it('validates missing OLLAMA_MODELS', () => {
     const result = runScript(RUN_SCRIPT, [], {
+      AGENTIC_NO_DOTENV: 'true',
       OLLAMA_HOST: 'http://localhost:11434',
       OLLAMA_MODELS: '',
       OLLAMA_API_KEY: 'test-key',
@@ -88,6 +90,7 @@ describe('run-podman.sh', () => {
 
   it('validates missing OLLAMA_API_KEY', () => {
     const result = runScript(RUN_SCRIPT, [], {
+      AGENTIC_NO_DOTENV: 'true',
       OLLAMA_HOST: 'http://localhost:11434',
       OLLAMA_MODELS: 'codellama:7b',
       OLLAMA_API_KEY: '',
