@@ -28,6 +28,17 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+# ---- Load optional .env from repo root ----
+if [ -f "${REPO_ROOT}/.env" ]; then
+  set -a
+  # shellcheck source=/dev/null
+  source "${REPO_ROOT}/.env"
+  set +a
+fi
+
 if [ $# -lt 1 ]; then
   echo "[create-pr] ERROR: workspace path argument is required." >&2
   echo "[create-pr] Usage: $0 <workspace-path>" >&2

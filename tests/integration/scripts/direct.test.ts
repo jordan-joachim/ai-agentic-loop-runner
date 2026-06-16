@@ -147,10 +147,12 @@ describe('run-direct.sh', () => {
     expect(result.stderr + result.stdout).not.toContain('OLLAMA_MODEL is required');
   });
 
-  it('generates a valid plan.yaml before invoking the harness', () => {
+  it('generates a valid plan.yaml and rules.yaml before invoking the harness', () => {
     const planPath = path.join(REPO_ROOT, 'workspace', 'plan.yaml');
+    const rulesPath = path.join(REPO_ROOT, 'workspace', 'rules.yaml');
     try {
       fsSync.rmSync(planPath, { force: true });
+      fsSync.rmSync(rulesPath, { force: true });
     } catch {
       // ignore
     }
@@ -160,27 +162,133 @@ describe('run-direct.sh', () => {
     });
 
     expect(fsSync.existsSync(planPath)).toBe(true);
-    const content = fsSync.readFileSync(planPath, 'utf-8');
-    const parsed = yaml.load(content) as Record<string, unknown>;
-    expect(parsed.meta).toMatchObject({
+    expect(fsSync.existsSync(rulesPath)).toBe(true);
+
+    const planContent = fsSync.readFileSync(planPath, 'utf-8');
+    const parsedPlan = yaml.load(planContent) as Record<string, unknown>;
+    expect(parsedPlan.meta).toMatchObject({
       title: 'FVT Coverage Run',
       version: '1',
       author: 'agentic-harness',
     });
-    expect(typeof (parsed.goal as Record<string, unknown>).description).toBe('string');
-    expect((parsed.goal as Record<string, unknown>).description).toContain('FVT Coverage Plan');
-    expect(Array.isArray(parsed.inputs)).toBe(true);
-    expect(Array.isArray(parsed.outputs)).toBe(true);
-    expect(Array.isArray(parsed.completion_criteria)).toBe(true);
-    expect(Array.isArray(parsed.rules)).toBe(true);
+    expect(typeof (parsedPlan.goal as Record<string, unknown>).description).toBe('string');
+    expect((parsedPlan.goal as Record<string, unknown>).description).toContain('FVT Coverage Plan');
+    expect(Array.isArray(parsedPlan.inputs)).toBe(true);
+    expect(Array.isArray(parsedPlan.outputs)).toBe(true);
+    expect(Array.isArray(parsedPlan.completion_criteria)).toBe(true);
+    expect(Array.isArray(parsedPlan.rules)).toBe(true);
+
+    const rulesContent = fsSync.readFileSync(rulesPath, 'utf-8');
+    const parsedRules = yaml.load(rulesContent) as Record<string, unknown>;
+    expect(Array.isArray(parsedRules.rules)).toBe(true);
+    expect(parsedRules.rules).toHaveLength(2);
+    expect((parsedRules.rules as Record<string, unknown>[])[0]).toMatchObject({
+      id: 'RULE-001',
+      name: 'Keep tests in sample language',
+      required: true,
+      check: 'language matches',
+    });
 
     // Should not see the original "Malformed YAML" error from the harness.
     expect(result.stderr + result.stdout).not.toContain('Malformed YAML');
   });
 
+  it('uses HARNESS_PROMPT_FILE, HARNESS_WORKSPACE_DIR, and HARNESS_RULES_FILE from .env', () => {
+    const envPath = path.join(REPO_ROOT, '.env');
+    const backupPath = `${envPath}.testbackup`;
+    const originalEnvExists = fsSync.existsSync(envPath);
+    if (originalEnvExists) {
+      fsSync.renameSync(envPath, backupPath);
+    }
+
+    const tmpWorkspace = 'tests/output/env-workspace';
+    const tmpRules = 'custom-rules.yaml';
+    const tmpPrompt = 'tests/output/env-prompt.md';
+    fsSync.mkdirSync(path.join(REPO_ROOT, path.dirname(tmpPrompt)), { recursive: true });
+    fsSync.writeFileSync(path.join(REPO_ROOT, tmpPrompt), '# Env Prompt\n\nFVT Coverage Plan from env\n', 'utf-8');
+
+    fsSync.writeFileSync(
+      envPath,
+      `HARNESS_PROMPT_FILE=${tmpPrompt}\nHARNESS_WORKSPACE_DIR=${tmpWorkspace}\nHARNESS_RULES_FILE=${tmpRules}\n`,
+      'utf-8',
+    );
+
+    try {
+      const result = runScript(RUN_SCRIPT, [], {
+        HARNESS_AGENT_RUNTIME: 'mock',
+      });
+
+      expect(fsSync.existsSync(path.join(REPO_ROOT, tmpWorkspace, 'plan.yaml'))).toBe(true);
+      expect(fsSync.existsSync(path.join(REPO_ROOT, tmpWorkspace, tmpRules))).toBe(true);
+      expect(result.stderr + result.stdout).toContain('Wrote rules to');
+    } finally {
+      fsSync.rmSync(envPath, { force: true });
+      if (originalEnvExists) {
+        fsSync.renameSync(backupPath, envPath);
+      }
+    }
+  });
+
   it('prints the watch command', () => {
     const content = fsSync.readFileSync(RUN_SCRIPT, 'utf-8');
     expect(content).toContain('watch-direct.sh');
+  });
+});
+
+const EXAMPLE_REPO_SCRIPTS = [
+  SETUP_SCRIPT,
+  RUN_SCRIPT,
+  WATCH_SCRIPT,
+  path.join(SCRIPT_DIR, 'setup-podman.sh'),
+  path.join(SCRIPT_DIR, 'run-podman.sh'),
+  path.join(SCRIPT_DIR, 'watch-podman.sh'),
+  path.join(SCRIPT_DIR, 'setup-codeengine.sh'),
+  path.join(SCRIPT_DIR, 'run-codeengine.sh'),
+  path.join(SCRIPT_DIR, 'watch-codeengine.sh'),
+  path.join(SCRIPT_DIR, 'run-local-podman.sh'),
+  path.join(SCRIPT_DIR, 'create-pr.sh'),
+];
+
+describe('script hardening', () => {
+  it('has no absolute /home/joachim paths in scripts', () => {
+    for (const script of EXAMPLE_REPO_SCRIPTS) {
+      const content = fsSync.readFileSync(script, 'utf-8');
+      expect(content).not.toContain('/home/joachim');
+    }
+  });
+
+  it('loads .env from repo root in each script', () => {
+    for (const script of EXAMPLE_REPO_SCRIPTS) {
+      const content = fsSync.readFileSync(script, 'utf-8');
+      expect(content).toContain('source "${REPO_ROOT}/.env"');
+    }
+  });
+});
+
+describe('.env.example', () => {
+  it('exists at the repo root', () => {
+    expect(fsSync.existsSync(path.join(REPO_ROOT, '.env.example'))).toBe(true);
+  });
+
+  it('contains the expected keys', () => {
+    const content = fsSync.readFileSync(path.join(REPO_ROOT, '.env.example'), 'utf-8');
+    for (const key of [
+      'HARNESS_AGENT_RUNTIME',
+      'HARNESS_PROMPT_FILE',
+      'HARNESS_WORKSPACE_DIR',
+      'HARNESS_RULES_FILE',
+      'OLLAMA_HOST',
+      'OLLAMA_MODELS',
+      'OLLAMA_API_KEY',
+      'IBMCLOUD_API_KEY',
+      'COS_BUCKET',
+      'COS_ENDPOINT',
+      'CE_PROJECT_NAME',
+      'CE_JOB_NAME',
+      'GITHUB_TOKEN',
+    ]) {
+      expect(content).toContain(key);
+    }
   });
 });
 

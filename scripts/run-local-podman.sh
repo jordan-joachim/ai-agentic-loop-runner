@@ -30,8 +30,20 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+# ---- Load optional .env from repo root ----
+if [ -f "${REPO_ROOT}/.env" ]; then
+  set -a
+  # shellcheck source=/dev/null
+  source "${REPO_ROOT}/.env"
+  set +a
+fi
+
 IMAGE_TAG="agentic-loop-codeengine-samples-example:latest"
-WORKSPACE_DIR="${REPO_ROOT}/workspace"
+HARNESS_WORKSPACE_DIR="${HARNESS_WORKSPACE_DIR:-workspace}"
+HARNESS_RULES_FILE="${HARNESS_RULES_FILE:-rules.yaml}"
+WORKSPACE_DIR="${REPO_ROOT}/${HARNESS_WORKSPACE_DIR}"
+RULES_FILE="${WORKSPACE_DIR}/${HARNESS_RULES_FILE}"
 
 # Validate required environment variables, falling back to deprecated OLLAMA_MODEL.
 if [ -z "${OLLAMA_HOST:-}" ]; then
@@ -65,6 +77,23 @@ mkdir -p "${WORKSPACE_DIR}/.droids"
 # Copy Droid config into the workspace if not already mounted
 if [ ! -f "${WORKSPACE_DIR}/.droids/ollama-droid.md" ]; then
   cp "${REPO_ROOT}/.droids/ollama-droid.md" "${WORKSPACE_DIR}/.droids/ollama-droid.md"
+fi
+
+# Generate a minimal rules.yaml if missing
+if [ ! -f "${RULES_FILE}" ]; then
+  cat > "${RULES_FILE}" <<'EOF'
+rules:
+  - id: RULE-001
+    name: Keep tests in sample language
+    description: New FVT tests must use the same language and framework as the sample project.
+    required: true
+    check: language matches
+  - id: RULE-002
+    name: Do not modify application source
+    description: Prefer adding tests over changing application code.
+    required: true
+    check: source diff empty
+EOF
 fi
 
 SAMPLES_ARG=""

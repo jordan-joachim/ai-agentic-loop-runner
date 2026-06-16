@@ -28,8 +28,21 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+# ---- Load optional .env from repo root ----
+if [ -f "${REPO_ROOT}/.env" ]; then
+  set -a
+  # shellcheck source=/dev/null
+  source "${REPO_ROOT}/.env"
+  set +a
+fi
+
 IMAGE_TAG="agentic-loop-codeengine-samples-example:latest"
-WORKSPACE_DIR="${REPO_ROOT}/workspace"
+HARNESS_PROMPT_FILE="${HARNESS_PROMPT_FILE:-prompts/fvt-coverage.md}"
+HARNESS_WORKSPACE_DIR="${HARNESS_WORKSPACE_DIR:-workspace}"
+HARNESS_RULES_FILE="${HARNESS_RULES_FILE:-rules.yaml}"
+WORKSPACE_DIR="${REPO_ROOT}/${HARNESS_WORKSPACE_DIR}"
+RULES_FILE="${WORKSPACE_DIR}/${HARNESS_RULES_FILE}"
 
 log() {
   echo "[run-podman] $*"
@@ -39,7 +52,7 @@ error() {
   echo "[run-podman] ERROR: $*" >&2
 }
 
-PROMPT_FILE="${1:-${REPO_ROOT}/prompts/fvt-coverage.md}"
+PROMPT_FILE="${1:-${REPO_ROOT}/${HARNESS_PROMPT_FILE}}"
 
 # ---- Validate required environment variables ----
 if [ -z "${OLLAMA_HOST:-}" ]; then
@@ -72,9 +85,10 @@ if [ ! -f "${PROMPT_FILE}" ]; then
   exit 1
 fi
 
-# ---- Generate a harness-compatible plan.yaml from the prompt ----
-node --no-warnings "${SCRIPT_DIR}/generate-plan.js" "${PROMPT_FILE}" "${WORKSPACE_DIR}/plan.yaml"
-log "Wrote prompt to ${WORKSPACE_DIR}/plan.yaml"
+# ---- Generate a harness-compatible plan.yaml and rules.yaml from the prompt ----
+node --no-warnings "${SCRIPT_DIR}/generate-plan.js" "${PROMPT_FILE}" "${WORKSPACE_DIR}/plan.yaml" "${RULES_FILE}"
+log "Wrote plan to ${WORKSPACE_DIR}/plan.yaml"
+log "Wrote rules to ${RULES_FILE}"
 
 # ---- Stop and remove any existing container with the same name ----
 if podman container exists agentic-loop-fvt 2>/dev/null; then

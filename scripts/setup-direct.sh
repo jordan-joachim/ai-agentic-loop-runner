@@ -14,7 +14,22 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-WORKSPACE_DIR="${REPO_ROOT}/workspace"
+
+# ---- Load optional .env from repo root ----
+if [ -f "${REPO_ROOT}/.env" ]; then
+  set -a
+  # shellcheck source=/dev/null
+  source "${REPO_ROOT}/.env"
+  set +a
+fi
+
+HARNESS_PROMPT_FILE="${HARNESS_PROMPT_FILE:-prompts/fvt-coverage.md}"
+HARNESS_WORKSPACE_DIR="${HARNESS_WORKSPACE_DIR:-workspace}"
+HARNESS_RULES_FILE="${HARNESS_RULES_FILE:-rules.yaml}"
+
+WORKSPACE_DIR="${REPO_ROOT}/${HARNESS_WORKSPACE_DIR}"
+PROMPT_PATH="${REPO_ROOT}/${HARNESS_PROMPT_FILE}"
+RULES_PATH="${WORKSPACE_DIR}/${HARNESS_RULES_FILE}"
 
 log() {
   echo "[setup-direct] $*"
@@ -67,7 +82,7 @@ elif [ "$(head -n1 "${WORKSPACE_DIR}/plan.yaml")" != "meta:" ]; then
 fi
 
 if [ "${PLAN_NEEDS_REGEN}" = "true" ]; then
-  node --no-warnings "${SCRIPT_DIR}/generate-plan.js" "${REPO_ROOT}/prompts/fvt-coverage.md" "${WORKSPACE_DIR}/plan.yaml"
+  node --no-warnings "${SCRIPT_DIR}/generate-plan.js" "${PROMPT_PATH}" "${WORKSPACE_DIR}/plan.yaml" "${RULES_PATH}"
   log "Generated workspace/plan.yaml from prompts/fvt-coverage.md"
 else
   log "workspace/plan.yaml already present"

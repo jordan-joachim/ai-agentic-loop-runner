@@ -4,7 +4,9 @@ workspace/
 .DS_Store
 *.log
 .env
-.env.*
+!.env.example
+.env.local
+.env.*.local
 *.code-workspace
 .idea/
 .vscode/

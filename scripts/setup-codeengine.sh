@@ -21,6 +21,17 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+# ---- Load optional .env from repo root ----
+if [ -f "${REPO_ROOT}/.env" ]; then
+  set -a
+  # shellcheck source=/dev/null
+  source "${REPO_ROOT}/.env"
+  set +a
+fi
+
 RESOURCE_GROUP="${CE_RESOURCE_GROUP:-agenticloop}"
 REGION="${IBMCLOUD_REGION:-us-south}"
 PROJECT_NAME="${CE_PROJECT_NAME:-agentic-loop-ce-project}"

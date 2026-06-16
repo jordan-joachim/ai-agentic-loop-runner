@@ -92,4 +92,59 @@ describe('generate-plan.js', () => {
     expect(description).toContain('line1');
     expect(description).toContain('"quoted"');
   });
+
+  it('writes a default rules.yaml when a rules output path is provided', async () => {
+    const outputDir = path.join(REPO_ROOT, 'tests', 'output', 'generate-plan');
+    const planPath = path.join(outputDir, 'with-rules-plan.yaml');
+    const rulesPath = path.join(outputDir, 'with-rules.yaml');
+    await fs.mkdir(outputDir, { recursive: true });
+    try {
+      await fs.rm(rulesPath, { force: true });
+    } catch {
+      // ignore
+    }
+
+    const result = execFileSync(
+      'node',
+      ['--no-warnings', GENERATE_PLAN_SCRIPT, PROMPT_PATH, planPath, rulesPath],
+      { encoding: 'utf-8' },
+    );
+    expect(result).toContain('Wrote default rules');
+
+    const content = await fs.readFile(rulesPath, 'utf-8');
+    const parsed = yaml.load(content) as Record<string, unknown>;
+    expect(Array.isArray(parsed.rules)).toBe(true);
+    expect(parsed.rules).toHaveLength(2);
+    expect((parsed.rules as Record<string, unknown>[])[0]).toMatchObject({
+      id: 'RULE-001',
+      name: 'Keep tests in sample language',
+      required: true,
+      check: 'language matches',
+    });
+    expect((parsed.rules as Record<string, unknown>[])[1]).toMatchObject({
+      id: 'RULE-002',
+      name: 'Do not modify application source',
+      required: true,
+      check: 'source diff empty',
+    });
+  });
+
+  it('does not overwrite an existing rules.yaml', async () => {
+    const outputDir = path.join(REPO_ROOT, 'tests', 'output', 'generate-plan');
+    const planPath = path.join(outputDir, 'existing-rules-plan.yaml');
+    const rulesPath = path.join(outputDir, 'existing-rules.yaml');
+    await fs.mkdir(outputDir, { recursive: true });
+    await fs.writeFile(rulesPath, 'rules:\n  - id: CUSTOM\n', 'utf-8');
+
+    const result = execFileSync(
+      'node',
+      ['--no-warnings', GENERATE_PLAN_SCRIPT, PROMPT_PATH, planPath, rulesPath],
+      { encoding: 'utf-8' },
+    );
+    expect(result).toContain('Rules already exist');
+
+    const content = await fs.readFile(rulesPath, 'utf-8');
+    expect(content).toContain('CUSTOM');
+    expect(content).not.toContain('RULE-001');
+  });
 });

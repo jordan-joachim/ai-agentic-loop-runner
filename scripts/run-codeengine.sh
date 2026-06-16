@@ -27,6 +27,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+# ---- Load optional .env from repo root ----
+if [ -f "${REPO_ROOT}/.env" ]; then
+  set -a
+  # shellcheck source=/dev/null
+  source "${REPO_ROOT}/.env"
+  set +a
+fi
+
 log() {
   echo "[run-codeengine] $*"
 }
@@ -41,8 +49,15 @@ PROJECT_NAME="${CE_PROJECT_NAME:-agentic-loop-ce-project}"
 JOB_NAME="${CE_JOB_NAME:-agentic-loop-harness-job}"
 JOBRUN_PREFIX="${CE_JOBRUN_PREFIX:-agentic-loop-run}"
 JOBRUN_NAME="${JOBRUN_PREFIX}-$(date +%s)"
-PROMPT_FILE="${1:-${REPO_ROOT}/prompts/fvt-coverage.md}"
+HARNESS_PROMPT_FILE="${HARNESS_PROMPT_FILE:-prompts/fvt-coverage.md}"
+HARNESS_WORKSPACE_DIR="${HARNESS_WORKSPACE_DIR:-workspace}"
+HARNESS_RULES_FILE="${HARNESS_RULES_FILE:-rules.yaml}"
+PROMPT_FILE="${1:-${REPO_ROOT}/${HARNESS_PROMPT_FILE}}"
+WORKSPACE_DIR="${REPO_ROOT}/${HARNESS_WORKSPACE_DIR}"
+RULES_FILE="${WORKSPACE_DIR}/${HARNESS_RULES_FILE}"
+PLAN_SOURCE="${WORKSPACE_DIR}/plan.yaml"
 
+# ---- Validate credentials ----
 if [ -z "${IBMCLOUD_API_KEY:-}" ]; then
   error "IBMCLOUD_API_KEY is required"
   exit 1
@@ -64,16 +79,19 @@ log "Logging in to IBM Cloud..."
 ibmcloud login --apikey "${IBMCLOUD_API_KEY}" -r "${REGION}" -g "${RESOURCE_GROUP}" > /dev/null
 ibmcloud ce project select --name "${PROJECT_NAME}" > /dev/null
 
-WORKSPACE_DIR="${REPO_ROOT}/workspace"
-PLAN_SOURCE="${WORKSPACE_DIR}/plan.yaml"
-
-# ---- Generate a harness-compatible plan.yaml from the prompt ----
-node --no-warnings "${SCRIPT_DIR}/generate-plan.js" "${PROMPT_FILE}" "${PLAN_SOURCE}"
+# ---- Generate a harness-compatible plan.yaml and rules.yaml from the prompt ----
+node --no-warnings "${SCRIPT_DIR}/generate-plan.js" "${PROMPT_FILE}" "${PLAN_SOURCE}" "${RULES_FILE}"
 log "Generated plan.yaml from ${PROMPT_FILE}"
+log "Generated rules.yaml at ${RULES_FILE}"
 
-# ---- Upload plan.yaml and any inputs to COS ----
+# ---- Upload plan.yaml and rules.yaml and any inputs to COS ----
 log "Uploading plan.yaml to cos://${COS_BUCKET}/plan.yaml"
 ibmcloud cos object-put --bucket "${COS_BUCKET}" --key plan.yaml --body "${PLAN_SOURCE}" > /dev/null
+
+if [ -f "${RULES_FILE}" ]; then
+  log "Uploading rules.yaml to cos://${COS_BUCKET}/rules.yaml"
+  ibmcloud cos object-put --bucket "${COS_BUCKET}" --key rules.yaml --body "${RULES_FILE}" > /dev/null
+fi
 
 # Upload inputs/ if present in the workspace
 if [ -d "${WORKSPACE_DIR}/inputs" ]; then
