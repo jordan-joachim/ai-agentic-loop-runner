@@ -116,6 +116,21 @@ describe('run-local-podman script', () => {
     expect(content).toContain('DROID_REVIEWER_CONFIG=/workspace/.droids/ollama-droid.md');
     expect(content).toContain('-v');
     expect(content).toContain('podman run');
+    expect(content).toContain('--name agentic-loop-fvt');
+    expect(content).toContain('NODE_OPTIONS=--no-warnings');
+  });
+
+  it('advertises the live container log command', async () => {
+    const content = await fs.readFile(SCRIPT_PATH, 'utf-8');
+
+    expect(content).toContain('podman logs -f agentic-loop-fvt');
+  });
+
+  it('supports an optional FVT_TAIL_LOGS background tail', async () => {
+    const content = await fs.readFile(SCRIPT_PATH, 'utf-8');
+
+    expect(content).toContain('FVT_TAIL_LOGS');
+    expect(content).toMatch(/podman logs -f agentic-loop-fvt.*&/);
   });
 
   it('calls create-pr.sh after the loop when credentials are set', async () => {

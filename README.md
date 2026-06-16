@@ -92,6 +92,31 @@ and then calls `scripts/create-pr.sh` when FVT changes exist.
 For backwards compatibility, `OLLAMA_MODEL` is still accepted as a fallback if
 `OLLAMA_MODELS` is not set, but `OLLAMA_MODELS` is the preferred variable.
 
+### Watching live logs
+
+The container is started with `--name agentic-loop-fvt`, so you can follow its
+combined stdout/stderr in another terminal at any time:
+
+```bash
+podman logs -f agentic-loop-fvt
+```
+
+To tail the workspace harness log and the per-iteration agent logs inside the
+running container, use the helper script:
+
+```bash
+./scripts/tail-logs.sh
+```
+
+To start a background log tail before the harness begins, set `FVT_TAIL_LOGS`:
+
+```bash
+FVT_TAIL_LOGS=true ./scripts/run-local-podman.sh /path/to/code-engine-samples/samples/ai
+```
+
+The run script prints the `podman logs -f agentic-loop-fvt` command at the start
+and end of the run so it is easy to find.
+
 ### Manual build and run
 
 ```bash

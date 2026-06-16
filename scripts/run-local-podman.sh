@@ -18,6 +18,7 @@
 #   FVT_TIME_LIMIT_MINUTES   - default: 120
 #   FVT_COVERAGE_THRESHOLD   - default: 100
 #   FVT_COVERAGE_STALL_DELTA - default: 5
+#   FVT_TAIL_LOGS            - set to "true" to tail container logs in the background
 #
 # Usage:
 #   ./scripts/run-local-podman.sh [samples-dir]
@@ -51,6 +52,7 @@ fi
 OLLAMA_MODELS="${OLLAMA_MODELS:-${OLLAMA_MODEL:-}}"
 
 echo "[run-local-podman] Building image ${IMAGE_TAG} with AGENT_RUNTIME=ollama-droid..."
+echo "[run-local-podman] Follow container logs live with: podman logs -f agentic-loop-fvt"
 podman build \
   -f "${REPO_ROOT}/Containerfile" \
   --build-arg AGENT_RUNTIME=ollama-droid \
@@ -72,10 +74,17 @@ if [ $# -ge 1 ]; then
   SAMPLES_MOUNT="-v \"$1:/workspace/inputs/code-engine-samples/samples/ai:Z\""
 fi
 
-eval "podman run --rm \
+# Optionally start a background log tail before the container runs.
+if [ "${FVT_TAIL_LOGS:-false}" = "true" ]; then
+  echo "[run-local-podman] Starting background log tail: podman logs -f agentic-loop-fvt"
+  podman logs -f agentic-loop-fvt &
+fi
+
+eval "podman run --rm --name agentic-loop-fvt \
   -v \"${WORKSPACE_DIR}:/workspace:Z\" \
   ${SAMPLES_MOUNT} \
   -e HARNESS_AGENT_RUNTIME=ollama-droid \
+  -e NODE_OPTIONS=--no-warnings \
   -e OLLAMA_HOST=\"${OLLAMA_HOST}\" \
   -e OLLAMA_MODELS=\"${OLLAMA_MODELS}\" \
   -e OLLAMA_API_KEY=\"${OLLAMA_API_KEY}\" \
@@ -87,6 +96,8 @@ eval "podman run --rm \
   -e FVT_COVERAGE_STALL_DELTA=\"${FVT_COVERAGE_STALL_DELTA:-5}\" \
   \"${IMAGE_TAG}\" \
   ${SAMPLES_ARG}"
+
+echo "[run-local-podman] Follow container logs live with: podman logs -f agentic-loop-fvt"
 
 # After the harness loop finishes, create a PR if a GitHub token is present.
 if [ -n "${GITHUB_TOKEN:-}" ]; then
