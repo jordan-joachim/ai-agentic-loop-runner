@@ -68,8 +68,13 @@ describe('generate-plan.js', () => {
     });
 
     expect(Array.isArray(parsed.rules)).toBe(true);
+    expect(parsed.rules).toHaveLength(2);
     expect((parsed.rules as Record<string, unknown>[])[0]).toMatchObject({
       rule_id: 'RULE-001',
+      applies: true,
+    });
+    expect((parsed.rules as Record<string, unknown>[])[1]).toMatchObject({
+      rule_id: 'RULE-002',
       applies: true,
     });
   });
@@ -111,22 +116,35 @@ describe('generate-plan.js', () => {
     );
     expect(result).toContain('Wrote default rules');
 
-    const content = await fs.readFile(rulesPath, 'utf-8');
-    const parsed = yaml.load(content) as Record<string, unknown>;
-    expect(Array.isArray(parsed.rules)).toBe(true);
-    expect(parsed.rules).toHaveLength(2);
-    expect((parsed.rules as Record<string, unknown>[])[0]).toMatchObject({
+    const rulesContent = await fs.readFile(rulesPath, 'utf-8');
+    const parsedRules = yaml.load(rulesContent) as Record<string, unknown>;
+    expect(Array.isArray(parsedRules.rules)).toBe(true);
+    expect(parsedRules.rules).toHaveLength(2);
+    expect((parsedRules.rules as Record<string, unknown>[])[0]).toMatchObject({
       id: 'RULE-001',
       name: 'Keep tests in sample language',
       required: true,
       check: 'language matches',
     });
-    expect((parsed.rules as Record<string, unknown>[])[1]).toMatchObject({
+    expect((parsedRules.rules as Record<string, unknown>[])[1]).toMatchObject({
       id: 'RULE-002',
       name: 'Do not modify application source',
       required: true,
       check: 'source diff empty',
     });
+
+    const planContent = await fs.readFile(planPath, 'utf-8');
+    const parsedPlan = yaml.load(planContent) as Record<string, unknown>;
+    expect(Array.isArray(parsedPlan.rules)).toBe(true);
+    const planRuleIds = (parsedPlan.rules as Record<string, unknown>[]).map(
+      (r) => r.rule_id as string,
+    );
+    const ruleIds = (parsedRules.rules as Record<string, unknown>[]).map(
+      (r) => r.id as string,
+    );
+    expect(planRuleIds).toEqual(ruleIds);
+    expect(planRuleIds).toContain('RULE-001');
+    expect(planRuleIds).toContain('RULE-002');
   });
 
   it('does not overwrite an existing rules.yaml', async () => {

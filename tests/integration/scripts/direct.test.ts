@@ -141,8 +141,10 @@ describe('run-direct.sh', () => {
       OLLAMA_MODELS: '',
       OLLAMA_MODEL: 'codellama:7b',
       OLLAMA_API_KEY: 'test-key',
+      // Avoid invoking the real droid/Ollama runtime in tests.
+      HARNESS_MAX_ITERATIONS: '0',
+      HARNESS_TIME_LIMIT_MINUTES: '0',
     });
-    // The harness binary is not expected to exist in this path in tests, so it fails later.
     expect(result.stderr + result.stdout).not.toContain('OLLAMA_MODELS');
     expect(result.stderr + result.stdout).not.toContain('OLLAMA_MODEL is required');
   });
@@ -188,9 +190,26 @@ describe('run-direct.sh', () => {
       required: true,
       check: 'language matches',
     });
+    expect((parsedRules.rules as Record<string, unknown>[])[1]).toMatchObject({
+      id: 'RULE-002',
+      name: 'Do not modify application source',
+      required: true,
+      check: 'source diff empty',
+    });
 
-    // Should not see the original "Malformed YAML" error from the harness.
-    expect(result.stderr + result.stdout).not.toContain('Malformed YAML');
+    const planRuleIds = (parsedPlan.rules as Record<string, unknown>[]).map(
+      (r) => r.rule_id as string,
+    );
+    const ruleIds = (parsedRules.rules as Record<string, unknown>[]).map(
+      (r) => r.id as string,
+    );
+    expect(planRuleIds).toEqual(ruleIds);
+    expect(planRuleIds).toContain('RULE-001');
+    expect(planRuleIds).toContain('RULE-002');
+
+    // Should not see the original harness validation error.
+    expect(result.stderr + result.stdout).not.toContain('Plan validation failed');
+    expect(result.stderr + result.stdout).not.toContain('is not referenced in the plan');
   });
 
   it('uses HARNESS_PROMPT_FILE, HARNESS_WORKSPACE_DIR, and HARNESS_RULES_FILE from .env', () => {
