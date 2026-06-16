@@ -37,6 +37,17 @@ error() {
   echo "[setup-podman] ERROR: $*" >&2
 }
 
+# ---- Rebuild linked harness package if symlink ----
+HARNESS_PACKAGE_PATH="${REPO_ROOT}/node_modules/@agentic-loop/harness"
+if [ -L "${HARNESS_PACKAGE_PATH}" ]; then
+  HARNESS_REAL_PATH="$(readlink -f "${HARNESS_PACKAGE_PATH}")"
+  log "Detected linked harness package at ${HARNESS_REAL_PATH}; building..."
+  (cd "${HARNESS_REAL_PATH}" && npm run build)
+  log "Harness package build complete"
+else
+  log "Harness package is not a symlink; skipping build"
+fi
+
 # ---- Validate Podman 5.x ----
 if ! command -v podman > /dev/null 2>&1; then
   error "Podman is required but not found on PATH"

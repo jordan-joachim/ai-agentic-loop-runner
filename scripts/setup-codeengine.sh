@@ -47,12 +47,6 @@ COS_SERVICE_INSTANCE_NAME="${COS_SERVICE_INSTANCE_NAME:-agenticloop-cos}"
 COS_SERVICE_ID_NAME="${COS_SERVICE_ID_NAME:-agentic-loop-harness-sa}"
 CE_COS_SECRET_NAME="${CE_COS_SECRET_NAME:-agentic-loop-harness-cos-secret}"
 
-# ---- Validate credentials ----
-if [ -z "${IBMCLOUD_API_KEY:-}" ]; then
-  echo "[setup-codeengine] ERROR: IBMCLOUD_API_KEY is required" >&2
-  exit 1
-fi
-
 log() {
   echo "[setup-codeengine] $*"
 }
@@ -60,6 +54,23 @@ log() {
 error() {
   echo "[setup-codeengine] ERROR: $*" >&2
 }
+
+# ---- Rebuild linked harness package if symlink ----
+HARNESS_PACKAGE_PATH="${REPO_ROOT}/node_modules/@agentic-loop/harness"
+if [ -L "${HARNESS_PACKAGE_PATH}" ]; then
+  HARNESS_REAL_PATH="$(readlink -f "${HARNESS_PACKAGE_PATH}")"
+  log "Detected linked harness package at ${HARNESS_REAL_PATH}; building..."
+  (cd "${HARNESS_REAL_PATH}" && npm run build)
+  log "Harness package build complete"
+else
+  log "Harness package is not a symlink; skipping build"
+fi
+
+# ---- Validate credentials ----
+if [ -z "${IBMCLOUD_API_KEY:-}" ]; then
+  echo "[setup-codeengine] ERROR: IBMCLOUD_API_KEY is required" >&2
+  exit 1
+fi
 
 # ---- Ensure ibmcloud CLI is available ----
 if ! command -v ibmcloud > /dev/null 2>&1; then
