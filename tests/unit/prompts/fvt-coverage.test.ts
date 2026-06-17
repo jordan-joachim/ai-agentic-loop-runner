@@ -12,16 +12,9 @@ async function readPrompt(): Promise<string> {
   return fs.readFile(PROMPT_PATH, 'utf-8');
 }
 
-async function readPlan(): Promise<Record<string, unknown>> {
-  const content = await fs.readFile(PLAN_PATH, 'utf-8');
-  const parsed = yaml.load(content);
-  if (parsed === undefined || parsed === null) {
-    throw new Error('fvt-coverage.yaml is empty or contains no YAML document');
-  }
-  return parsed as Record<string, unknown>;
-}
 
-describe('FVT coverage prompt (VAL-EXAMPLE-001)', () => {
+
+describe('FVT coverage prompt (VAL-EXAMPLE-001 and VAL-EXAMPLE-005)', () => {
   it('exists and is non-empty', async () => {
     const content = await readPrompt();
     expect(content.length).toBeGreaterThan(0);
@@ -35,16 +28,45 @@ describe('FVT coverage prompt (VAL-EXAMPLE-001)', () => {
     expect(content).toContain('inputs/code-engine-samples');
   });
 
-  // ---- DOER section ----
-  it('has a clear DOER section with numbered steps', async () => {
+  // ---- Phased model instructions ----
+  it('instructs the AI to classify steps into setup, execute, and teardown', async () => {
     const content = await readPrompt();
-    expect(content).toMatch(/DOER Instructions/);
-    expect(content).toMatch(/### 1\./);
-    expect(content).toMatch(/### 2\./);
-    expect(content).toMatch(/### 3\./);
-    expect(content).toMatch(/### 4\./);
-    expect(content).toMatch(/### 5\./);
-    expect(content).toMatch(/### 6\./);
+    expect(content).toContain('ONE-TIME SETUP');
+    expect(content).toContain('ITERATIVE EXECUTE');
+    expect(content).toContain('ONE-TIME TEARDOWN');
+    expect(content).toContain('phases.setup');
+    expect(content).toContain('phases.execute');
+    expect(content).toContain('phases.teardown');
+  });
+
+  it('requires setup to capture baseline coverage and write starting-summary.md', async () => {
+    const content = await readPrompt();
+    expect(content).toContain('setup/starting-summary.md');
+    expect(content).toContain('Capture baseline FVT coverage');
+    expect(content).toContain('baseline coverage');
+  });
+
+  it('requires teardown to compare results to starting-summary.md and explain why the loop finished', async () => {
+    const content = await readPrompt();
+    expect(content).toContain('teardown/final-summary.md');
+    expect(content).toContain('setup/starting-summary.md');
+    expect(content).toContain('why the loop finished');
+    expect(content).toContain('Compare the final coverage');
+  });
+
+  it('requires teardown to push branch, open PR, and write pr-url.txt', async () => {
+    const content = await readPrompt();
+    expect(content).toContain('push');
+    expect(content).toContain('pull request');
+    expect(content).toContain('teardown/pr-url.txt');
+    expect(content).toContain('GITHUB_TOKEN');
+  });
+
+  // ---- DOER section ----
+  it('has clear DOER instructions', async () => {
+    const content = await readPrompt();
+    expect(content).toMatch(/DOER Instructions|DOER agent/);
+    expect(content).toContain('coverage.json');
   });
 
   it('DOER instructions cover sample discovery', async () => {
@@ -61,14 +83,10 @@ describe('FVT coverage prompt (VAL-EXAMPLE-001)', () => {
   });
 
   // ---- REVIEWER section ----
-  it('has a clear REVIEWER section with numbered steps', async () => {
+  it('has clear REVIEWER instructions', async () => {
     const content = await readPrompt();
-    expect(content).toMatch(/REVIEWER Instructions/);
-    expect(content).toMatch(/### 1\./);
-    expect(content).toMatch(/### 2\./);
-    expect(content).toMatch(/### 3\./);
-    expect(content).toMatch(/### 4\./);
-    expect(content).toMatch(/### 5\./);
+    expect(content).toMatch(/REVIEWER Instructions|REVIEWER agent/);
+    expect(content).toContain('review.yaml');
   });
 
   it('REVIEWER instructions define done/incomplete decision', async () => {
@@ -94,11 +112,13 @@ describe('FVT coverage prompt (VAL-EXAMPLE-001)', () => {
   });
 
   // ---- Output files ----
-  it('specifies output files per sample', async () => {
+  it('specifies output files per sample and phase', async () => {
     const content = await readPrompt();
     expect(content).toContain('coverage.json');
     expect(content).toContain('review.yaml');
-    expect(content).toContain('result.yaml');
+    expect(content).toContain('starting-summary.md');
+    expect(content).toContain('final-summary.md');
+    expect(content).toContain('pr-url.txt');
   });
 
   // ---- Rules ----
@@ -110,14 +130,23 @@ describe('FVT coverage prompt (VAL-EXAMPLE-001)', () => {
   });
 
   // ---- Plan YAML structure ----
-  it('can serve as plan.yaml content with goal, completion criteria, and rules', async () => {
+  it('describes a phased plan.yaml structure with meta, inputs, phases, and rules', async () => {
     const content = await readPrompt();
-    // The prompt is designed to be used as plan.yaml content.
-    // Verify it contains the structural elements expected in a plan.
-    expect(content).toMatch(/Goal/);
-    expect(content).toMatch(/Completion Criteria/);
-    expect(content).toMatch(/Output Files/);
-    expect(content).toMatch(/Rules/);
+    expect(content).toMatch(/meta:/);
+    expect(content).toMatch(/inputs:/);
+    expect(content).toMatch(/phases:/);
+    expect(content).toMatch(/phases\.setup/);
+    expect(content).toMatch(/phases\.execute/);
+    expect(content).toMatch(/phases\.teardown/);
+    expect(content).toMatch(/rules:/);
+    expect(content).toContain('version: "2"');
+  });
+
+  // ---- Legacy YAML plan file ----
+  it('keeps the legacy fvt-coverage.yaml plan file for backwards compatibility', async () => {
+    const stats = await fs.stat(PLAN_PATH);
+    expect(stats.isFile()).toBe(true);
+    expect(stats.size).toBeGreaterThan(0);
   });
 
   // ---- Gaps ----
@@ -126,44 +155,117 @@ describe('FVT coverage prompt (VAL-EXAMPLE-001)', () => {
     expect(content).toContain('gaps');
     expect(content).toContain('uncovered');
   });
+
+  // ---- Extracted plan requirements ----
+  it('lists the structural checks required for the extracted plan.yaml', async () => {
+    const content = await readPrompt();
+    expect(content).toContain('Extracted plan.yaml');
+    expect(content).toContain('phases.setup.outputs');
+    expect(content).toContain('phases.execute.goal.measurable');
+    expect(content).toContain('phases.execute.completion_criteria');
+    expect(content).toContain('phases.execute.doer');
+    expect(content).toContain('phases.execute.reviewer');
+    expect(content).toContain('phases.teardown.outputs');
+  });
 });
 
-describe('FVT coverage YAML plan (VAL-EXAMPLE-002)', () => {
-  it('exists and is non-empty', async () => {
-    const stats = await fs.stat(PLAN_PATH);
-    expect(stats.isFile()).toBe(true);
-    expect(stats.size).toBeGreaterThan(0);
-  });
+function extractPhasedPlanFromPrompt(content: string): Record<string, unknown> {
+  // The prompt embeds several YAML fenced code blocks. We concatenate the
+  // `meta`, `inputs`, `phases`, and `rules` blocks so the prompt itself can be
+  // interpreted as a valid phased plan.yaml. The prompt contains multiple
+  // `phases:` sub-blocks (setup outputs, execute outputs, teardown outputs);
+  // we merge them under a single `phases:` root by collecting each block and
+  // wrapping the phase sub-blocks when needed.
+  const blocks: string[] = [];
+  const regex = /^```yaml\n([\s\S]*?)\n```$/gm;
+  let match;
+  while ((match = regex.exec(content)) !== null) {
+    const block = match[1] as string;
+    if (
+      block.startsWith('meta:') ||
+      block.startsWith('inputs:') ||
+      block.startsWith('phases:') ||
+      block.startsWith('rules:')
+    ) {
+      blocks.push(block);
+    }
+  }
+  if (blocks.length === 0) {
+    throw new Error('No phased plan YAML blocks found in prompt');
+  }
 
-  it('parses as valid YAML', async () => {
-    const plan = await readPlan();
-    expect(typeof plan).toBe('object');
-  });
+  // Normalize phase sub-blocks: the prompt contains multiple `phases:` fenced
+  // blocks (setup outputs, execute outputs, teardown outputs). Merge them
+  // under a single `phases:` root so the combined YAML is valid.
+  const phaseSubBlocks: string[] = [];
+  const otherBlocks: string[] = [];
+  for (const block of blocks) {
+    if (block.startsWith('phases:')) {
+      const body = block.replace(/^phases:\n?/, '');
+      if (
+        /^\s+setup:\s*$/m.test(body) ||
+        /^\s+execute:\s*$/m.test(body) ||
+        /^\s+teardown:\s*$/m.test(body)
+      ) {
+        phaseSubBlocks.push(body);
+      } else {
+        otherBlocks.push(block);
+      }
+    } else if (block.startsWith('meta:')) {
+      // Prefer the first meta block (the one with the title and version).
+      const existingMeta = otherBlocks.find((b) => b.startsWith('meta:'));
+      if (!existingMeta) {
+        otherBlocks.push(block);
+      }
+    } else {
+      otherBlocks.push(block);
+    }
+  }
 
-  it('has required meta fields', async () => {
-    const plan = await readPlan();
-    expect(plan.meta).toMatchObject({
-      title: expect.any(String),
-      version: expect.any(String),
-      author: expect.any(String),
+  let combined: string;
+  if (phaseSubBlocks.length > 0) {
+    // Re-indent each phase sub-block by two spaces so it nests under phases:.
+    const mergedPhases = 'phases:\n' + phaseSubBlocks.map((b) => b.replace(/^/gm, '  ')).join('\n');
+    combined = [...otherBlocks, mergedPhases].join('\n');
+  } else {
+    combined = otherBlocks.join('\n');
+  }
+
+  const parsed = yaml.load(combined);
+  if (parsed === undefined || parsed === null) {
+    throw new Error('Combined YAML blocks parsed to nothing');
+  }
+  return parsed as Record<string, unknown>;
+}
+
+describe('FVT coverage YAML plan (VAL-EXAMPLE-005)', () => {
+  it('the prompt can be combined into a valid phased plan.yaml', async () => {
+    const content = await readPrompt();
+    const plan = extractPhasedPlanFromPrompt(content);
+    expect(plan).toMatchObject({
+      meta: expect.any(Object),
+      inputs: expect.any(Array),
+      phases: expect.any(Object),
+      rules: expect.any(Array),
     });
   });
 
-  it('has a goal with description and measurable fields', async () => {
-    const plan = await readPlan();
-    expect(plan.goal).toMatchObject({
-      description: expect.any(String),
-      measurable: expect.any(String),
-    });
-    expect(String((plan.goal as Record<string, unknown>).description).length).toBeGreaterThan(0);
-    expect(String((plan.goal as Record<string, unknown>).measurable).length).toBeGreaterThan(0);
+  it('phased plan has meta title, version "2", and author', async () => {
+    const content = await readPrompt();
+    const plan = extractPhasedPlanFromPrompt(content);
+    const meta = plan.meta as Record<string, unknown>;
+    expect(meta.title).toEqual(expect.any(String));
+    expect(meta.version).toBe('2');
+    expect(meta.author).toEqual(expect.any(String));
   });
 
-  it('has at least one inputs entry with required fields', async () => {
-    const plan = await readPlan();
+  it('phased plan has at least one inputs entry with required fields', async () => {
+    const content = await readPrompt();
+    const plan = extractPhasedPlanFromPrompt(content);
     expect(Array.isArray(plan.inputs)).toBe(true);
-    expect((plan.inputs as Record<string, unknown>[]).length).toBeGreaterThan(0);
-    for (const input of plan.inputs as Record<string, unknown>[]) {
+    const inputs = plan.inputs as Record<string, unknown>[];
+    expect(inputs.length).toBeGreaterThan(0);
+    for (const input of inputs) {
       expect(input).toMatchObject({
         name: expect.any(String),
         type: expect.any(String),
@@ -176,55 +278,78 @@ describe('FVT coverage YAML plan (VAL-EXAMPLE-002)', () => {
     }
   });
 
-  it('has at least one outputs entry with required fields', async () => {
-    const plan = await readPlan();
-    expect(Array.isArray(plan.outputs)).toBe(true);
-    expect((plan.outputs as Record<string, unknown>[]).length).toBeGreaterThan(0);
-    for (const output of plan.outputs as Record<string, unknown>[]) {
-      expect(output).toMatchObject({
-        name: expect.any(String),
-        type: expect.any(String),
-        path: expect.any(String),
-        description: expect.any(String),
-      });
-    }
+  it('phased plan has setup phase with clone, install, and baseline coverage', async () => {
+    const content = await readPrompt();
+    const plan = extractPhasedPlanFromPrompt(content);
+    const setup = (plan.phases as Record<string, unknown>).setup as Record<string, unknown>;
+    expect(typeof setup.description).toBe('string');
+    const setupDescription = setup.description as string;
+    expect(setupDescription).toContain('git clone');
+    expect(setupDescription).toContain('install');
+    expect(setupDescription).toContain('baseline');
+    expect(setupDescription).toContain('coverage');
   });
 
-  it('has completion criteria matching CC-001 and CC-002', async () => {
-    const plan = await readPlan();
-    expect(Array.isArray(plan.completion_criteria)).toBe(true);
-    const criteria = plan.completion_criteria as Record<string, unknown>[];
-    expect(criteria).toHaveLength(3);
-    expect(criteria[0]).toMatchObject({
-      id: 'CC-001',
-      description: 'Coverage reaches 100%',
-      test: 'coverage_percent >= 100',
-    });
-    expect(criteria[1]).toMatchObject({
-      id: 'CC-002',
-      description: 'Coverage improvement stalls',
-      test: 'coverage_delta_percent <= 5',
-    });
+  it('phased plan setup outputs include setup/starting-summary.md', async () => {
+    const content = await readPrompt();
+    const plan = extractPhasedPlanFromPrompt(content);
+    const setup = (plan.phases as Record<string, unknown>).setup as Record<string, unknown>;
+    const outputs = setup.outputs as Record<string, unknown>[];
+    expect(outputs.some((o) => String(o.path).endsWith('setup/starting-summary.md'))).toBe(true);
   });
 
-  it('has rules referencing applicable rule IDs', async () => {
-    const plan = await readPlan();
-    expect(Array.isArray(plan.rules)).toBe(true);
+  it('phased plan execute phase has goal.measurable, completion_criteria, doer, reviewer, and outputs', async () => {
+    const content = await readPrompt();
+    const plan = extractPhasedPlanFromPrompt(content);
+    const execute = (plan.phases as Record<string, unknown>).execute as Record<string, unknown>;
+    expect((execute.goal as Record<string, unknown>).measurable).toEqual(expect.any(String));
+    expect(String((execute.goal as Record<string, unknown>).measurable).length).toBeGreaterThan(0);
+    expect(Array.isArray(execute.completion_criteria)).toBe(true);
+    expect((execute.completion_criteria as Record<string, unknown>[]).length).toBeGreaterThan(0);
+    expect(typeof execute.doer).toBe('string');
+    expect(String(execute.doer).length).toBeGreaterThan(0);
+    expect(typeof execute.reviewer).toBe('string');
+    expect(String(execute.reviewer).length).toBeGreaterThan(0);
+    expect(Array.isArray(execute.outputs)).toBe(true);
+    expect((execute.outputs as Record<string, unknown>[]).length).toBeGreaterThan(0);
+  });
+
+  it('phased plan teardown description includes push, PR, and final summary', async () => {
+    const content = await readPrompt();
+    const plan = extractPhasedPlanFromPrompt(content);
+    const teardown = (plan.phases as Record<string, unknown>).teardown as Record<string, unknown>;
+    const teardownDescription = teardown.description as string;
+    expect(teardownDescription.toLowerCase()).toContain('push');
+    expect(teardownDescription.toLowerCase()).toContain('pull request');
+    expect(teardownDescription).toContain('teardown/final-summary.md');
+    expect(teardownDescription).toContain('setup/starting-summary.md');
+    expect(teardownDescription).toContain('why the loop finished');
+  });
+
+  it('phased plan teardown outputs include teardown/final-summary.md and teardown/pr-url.txt', async () => {
+    const content = await readPrompt();
+    const plan = extractPhasedPlanFromPrompt(content);
+    const teardown = (plan.phases as Record<string, unknown>).teardown as Record<string, unknown>;
+    const outputs = teardown.outputs as Record<string, unknown>[];
+    expect(outputs.some((o) => String(o.path).endsWith('teardown/final-summary.md'))).toBe(true);
+    expect(outputs.some((o) => String(o.path).endsWith('teardown/pr-url.txt'))).toBe(true);
+  });
+
+  it('phased plan completion criteria include CC-001 and CC-002', async () => {
+    const content = await readPrompt();
+    const plan = extractPhasedPlanFromPrompt(content);
+    const execute = (plan.phases as Record<string, unknown>).execute as Record<string, unknown>;
+    const criteria = execute.completion_criteria as Record<string, unknown>[];
+    const ids = criteria.map((c) => c.id);
+    expect(ids).toContain('CC-001');
+    expect(ids).toContain('CC-002');
+  });
+
+  it('phased plan references at least one applicable rule', async () => {
+    const content = await readPrompt();
+    const plan = extractPhasedPlanFromPrompt(content);
     const rules = plan.rules as Record<string, unknown>[];
     expect(rules.length).toBeGreaterThan(0);
-    for (const rule of rules) {
-      expect(rule).toHaveProperty('rule_id');
-      expect(rule).toHaveProperty('applies');
-      expect(typeof rule.rule_id).toBe('string');
-      expect(typeof rule.applies).toBe('boolean');
-    }
-  });
-
-  it('embeds the key FVT coverage instructions in the goal', async () => {
-    const plan = await readPlan();
-    const description = String((plan.goal as Record<string, unknown>).description);
-    expect(description).toContain('IBM CodeEngine');
-    expect(description).toContain('samples/ai');
-    expect(description).toContain('coverage');
+    expect(rules.every((r) => typeof r.rule_id === 'string' && typeof r.applies === 'boolean')).toBe(true);
   });
 });

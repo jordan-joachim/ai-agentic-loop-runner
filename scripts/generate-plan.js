@@ -72,14 +72,94 @@ function buildRuleRefs(rules) {
 }
 
 /**
- * Build a harness Plan object from a Markdown prompt.
+ * Extract YAML blocks from a Markdown prompt and merge them into a phased plan.
+ *
+ * Looks for fenced `yaml` code blocks that start with `meta:`, `inputs:`,
+ * `phases:`, or `rules:`. If found, they are concatenated and parsed into a
+ * single phased plan object. If no phased blocks are found, falls back to
+ * `undefined` so the caller can build a legacy plan.
+ *
+ * @param {string} prompt - Markdown content of the prompt.
+ * @param {object} rules - Parsed rules object used to populate plan rule refs.
+ * @returns {object|undefined} Parsed phased plan, or undefined if none found.
+ */
+function extractPhasedPlan(prompt, rules) {
+  const blocks = [];
+  const regex = /^```yaml\n([\s\S]*?)\n```$/gm;
+  let match;
+  while ((match = regex.exec(prompt)) !== null) {
+    const block = match[1];
+    if (
+      block.startsWith('meta:') ||
+      block.startsWith('inputs:') ||
+      block.startsWith('phases:') ||
+      block.startsWith('rules:')
+    ) {
+      blocks.push(block);
+    }
+  }
+  if (blocks.length === 0) {
+    return undefined;
+  }
+
+  // Normalize phase sub-blocks: the prompt contains multiple `phases:` fenced
+  // blocks (setup outputs, execute outputs, teardown outputs). Merge them
+  // under a single `phases:` root so the combined YAML is valid.
+  const phaseSubBlocks = [];
+  const otherBlocks = [];
+  for (const block of blocks) {
+    if (block.startsWith('phases:')) {
+      const body = block.replace(/^phases:\n?/, '');
+      if (
+        /^\s+setup:\s*$/m.test(body) ||
+        /^\s+execute:\s*$/m.test(body) ||
+        /^\s+teardown:\s*$/m.test(body)
+      ) {
+        phaseSubBlocks.push(body);
+      } else {
+        otherBlocks.push(block);
+      }
+    } else if (block.startsWith('meta:')) {
+      // Prefer the first meta block (the one with the title and version).
+      const existingMeta = otherBlocks.find((b) => b.startsWith('meta:'));
+      if (!existingMeta) {
+        otherBlocks.push(block);
+      }
+    } else {
+      otherBlocks.push(block);
+    }
+  }
+
+  let combined;
+  if (phaseSubBlocks.length > 0) {
+    const mergedPhases = 'phases:\n' + phaseSubBlocks.map((b) => b.replace(/^/gm, '  ')).join('\n');
+    combined = [...otherBlocks, mergedPhases].join('\n');
+  } else {
+    combined = otherBlocks.join('\n');
+  }
+
+  const parsed = yaml.load(combined);
+  if (!parsed || typeof parsed !== 'object') {
+    return undefined;
+  }
+  // Ensure required sections are present; otherwise fall back.
+  if (!parsed.meta || !parsed.phases) {
+    return undefined;
+  }
+  // Apply rule references from the generated/loaded rules file.
+  parsed.rules = buildRuleRefs(rules);
+  return parsed;
+}
+
+/**
+ * Build a legacy (version "1") harness Plan object from a Markdown prompt.
  *
  * @param {string} promptPath - Absolute path to the source prompt file.
  * @param {string} prompt - Markdown content of the prompt.
  * @param {object} rules - Parsed rules object used to populate plan rule refs.
- * @returns {object} Plan object matching the harness schema.
+ * @returns {object} Plan object matching the legacy harness schema.
  */
-function buildPlan(promptPath, prompt, rules) {
+function buildLegacyPlan(promptPath, prompt, rules) {
   return {
     meta: {
       title: 'FVT Coverage Run',
@@ -116,6 +196,26 @@ function buildPlan(promptPath, prompt, rules) {
     ],
     rules: buildRuleRefs(rules),
   };
+}
+
+/**
+ * Build a harness Plan object from a Markdown prompt.
+ *
+ * If the prompt contains extractable phased plan YAML blocks, they are used
+ * directly to produce a version "2" plan. Otherwise a legacy plan is built
+ * with the prompt embedded as goal.description.
+ *
+ * @param {string} promptPath - Absolute path to the source prompt file.
+ * @param {string} prompt - Markdown content of the prompt.
+ * @param {object} rules - Parsed rules object used to populate plan rule refs.
+ * @returns {object} Plan object matching the harness schema.
+ */
+function buildPlan(promptPath, prompt, rules) {
+  const phasedPlan = extractPhasedPlan(prompt, rules);
+  if (phasedPlan) {
+    return phasedPlan;
+  }
+  return buildLegacyPlan(promptPath, prompt, rules);
 }
 
 /**

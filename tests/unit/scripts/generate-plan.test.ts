@@ -33,38 +33,45 @@ describe('generate-plan.js', () => {
     const parsed = yaml.load(content) as Record<string, unknown>;
 
     expect(parsed.meta).toMatchObject({
-      title: 'FVT Coverage Run',
-      version: '1',
+      title: 'IBM CodeEngine samples/ai FVT coverage run',
+      version: '2',
       author: 'agentic-harness',
     });
 
-    expect(parsed.goal).toMatchObject({
-      measurable:
-        "The example repo's test suite has more passing tests and higher coverage than at the start of the run.",
-    });
-    expect(typeof (parsed.goal as Record<string, unknown>).description).toBe('string');
-    expect((parsed.goal as Record<string, unknown>).description).toContain('FVT Coverage Plan');
+    expect(parsed.inputs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'code_engine_samples',
+          type: 'url',
+          path: 'https://github.com/IBM/CodeEngine.git',
+        }),
+      ]),
+    );
 
-    expect(Array.isArray(parsed.inputs)).toBe(true);
-    expect(parsed.inputs).toHaveLength(1);
-    expect((parsed.inputs as Record<string, unknown>[])[0]).toMatchObject({
-      name: 'prompt',
-      type: 'file',
-      description: 'Original Markdown prompt used to derive this plan',
-    });
-
-    expect(Array.isArray(parsed.outputs)).toBe(true);
-    expect((parsed.outputs as Record<string, unknown>[])[0]).toMatchObject({
-      name: 'result',
-      type: 'file',
-      path: 'result.yaml',
-    });
-
-    expect(Array.isArray(parsed.completion_criteria)).toBe(true);
-    expect((parsed.completion_criteria as Record<string, unknown>[])[0]).toMatchObject({
-      id: 'CC-001',
-      description: 'FVT tests were generated or updated',
-      test: 'npm test passes with at least as many tests as before',
+    expect(parsed.phases).toMatchObject({
+      setup: expect.objectContaining({
+        description: expect.any(String),
+        outputs: expect.arrayContaining([
+          expect.objectContaining({ path: 'setup/starting-summary.md' }),
+        ]),
+      }),
+      execute: expect.objectContaining({
+        goal: expect.objectContaining({ measurable: expect.any(String) }),
+        completion_criteria: expect.arrayContaining([
+          expect.objectContaining({ id: 'CC-001' }),
+          expect.objectContaining({ id: 'CC-002' }),
+        ]),
+        doer: expect.any(String),
+        reviewer: expect.any(String),
+        outputs: expect.any(Array),
+      }),
+      teardown: expect.objectContaining({
+        description: expect.any(String),
+        outputs: expect.arrayContaining([
+          expect.objectContaining({ path: 'teardown/final-summary.md' }),
+          expect.objectContaining({ path: 'teardown/pr-url.txt' }),
+        ]),
+      }),
     });
 
     expect(Array.isArray(parsed.rules)).toBe(true);
@@ -93,6 +100,7 @@ describe('generate-plan.js', () => {
 
     const content = await fs.readFile(planPath, 'utf-8');
     const parsed = yaml.load(content) as Record<string, unknown>;
+    // The prompt has no phased blocks, so it falls back to legacy embedding.
     const description = (parsed.goal as Record<string, unknown>).description as string;
     expect(description).toContain('line1');
     expect(description).toContain('"quoted"');

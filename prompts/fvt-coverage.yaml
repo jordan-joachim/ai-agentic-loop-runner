@@ -1,15 +1,7 @@
 meta:
-  title: FVT Coverage Plan
-  version: "1"
+  title: IBM CodeEngine samples/ai FVT coverage run
+  version: "2"
   author: agentic-harness
-
-goal:
-  description: >
-    Instruct the DOER and REVIEWER agents to download the IBM CodeEngine
-    samples/ai repository, discover every sample project, write or extend FVT
-    tests, run them with coverage, and loop until coverage reaches 100% or the
-    per-sample improvement between iterations stalls at 5% or less.
-  measurable: coverage_percent >= 100 or coverage_delta_percent <= 5
 
 inputs:
   - name: code_engine_samples
@@ -33,33 +25,100 @@ inputs:
     value: master
     description: Optional base branch for PR creation
 
-outputs:
-  - name: result
-    type: file
-    path: result.yaml
-    description: Aggregated harness result with status and iteration counts
-  - name: coverage_reports
-    type: directory
-    path: samples
-    description: Per-sample coverage.json files produced by the DOER
-  - name: review_reports
-    type: directory
-    path: samples
-    description: Per-sample review.yaml files produced by the REVIEWER
-
-completion_criteria:
-  - id: CC-001
-    description: Coverage reaches 100%
-    test: coverage_percent >= 100
-  - id: CC-002
-    description: Coverage improvement stalls
-    test: coverage_delta_percent <= 5
-  - id: CC-003
-    description: Tests pass after coverage changes
-    test: npm test exits 0
-
 rules:
   - rule_id: RULE-001
     applies: true
   - rule_id: RULE-002
     applies: true
+
+phases:
+  setup:
+    description: >
+      Clone the IBM CodeEngine samples repository into inputs/code-engine-samples.
+      If the repository is already present, verify it is a valid git clone and skip
+      the download step. Install dependencies for every sample under
+      samples/ai/ (npm install for Node.js, pip install for Python). Capture
+      baseline FVT coverage for each sample using the detected framework and
+      write setup/starting-summary.md describing the repository URL, commit-ish,
+      number of samples discovered, baseline coverage per sample, detected
+      frameworks, and any samples that could not be tested.
+    outputs:
+      - name: starting-summary
+        type: file
+        path: setup/starting-summary.md
+        description: Baseline coverage state for every discovered sample
+
+  execute:
+    description: >
+      For every sample discovered in setup, read the existing source files and
+      tests, add focused FVT tests that exercise currently uncovered code paths,
+      run the tests with coverage, and write per-sample coverage.json files.
+      Hand off to the REVIEWER after each iteration. Continue until the
+      REVIEWER signals done, the maximum iteration limit is reached, or the
+      time limit is exceeded.
+    goal:
+      description: Increase FVT line coverage for every sample under samples/ai/.
+      measurable: For each sample, coverage_percent >= 100 (lines), or stop when the per-sample improvement between consecutive iterations is 5% or less.
+    completion_criteria:
+      - id: CC-001
+        description: Coverage reaches 100%
+        test: coverage_percent >= 100
+      - id: CC-002
+        description: Coverage improvement stalls
+        test: coverage_delta_percent <= 5
+      - id: CC-003
+        description: Tests pass after coverage changes
+        test: npm test exits 0
+    doer: >
+      Read setup/starting-summary.md to understand the baseline coverage and
+      discovered samples. For each sample, add focused FVT tests that exercise
+      currently uncovered code paths, keeping tests in the same language and
+      framework. Run the tests with coverage using the detected framework,
+      extract coverage percentages for lines, statements, functions, and
+      branches, and write a coverage.json file to the sample output directory.
+      Hand off to the REVIEWER. If the REVIEWER signals incomplete, start the
+      next iteration targeting the listed gaps. Continue until the REVIEWER
+      signals done or the harness reaches its iteration/time limit.
+    reviewer: >
+      Load every coverage.json produced by the DOER. The primary metric is
+      lines coverage percentage. Compare current coverage to the previous
+      iteration (or to setup/starting-summary.md on iteration 1) and compute
+      per-sample deltas. Signal done when all samples meet either
+      coverage_percent >= 100 or coverage_delta_percent <= 5. Otherwise signal
+      incomplete and list every metric below 100% as a gap. For each sample,
+      write a review.yaml with status, coverage_percent, coverage_delta_percent,
+      gaps, iteration, and sample_name.
+    outputs:
+      - name: coverage-reports
+        type: directory
+        path: samples
+        description: Per-sample coverage.json files produced by the DOER
+      - name: review-reports
+        type: directory
+        path: samples
+        description: Per-sample review.yaml files produced by the REVIEWER
+
+  teardown:
+    description: >
+      Read setup/starting-summary.md and all coverage.json files produced during
+      the execute phase. Compare final coverage to the baseline and report, per
+      sample, the starting lines coverage, final lines coverage, absolute and
+      percentage-point improvement, and whether the sample reached 100%, stalled,
+      or remains incomplete. Explain why the loop finished (reviewer done, max
+      iterations reached, timeout, or setup failure). Push FVT changes to a new
+      branch in the samples repository, open a GitHub pull request to the base
+      branch using GITHUB_TOKEN, and write the created PR URL to
+      teardown/pr-url.txt. Write teardown/final-summary.md that contains a
+      recap of the repository used, the baseline coverage, the final coverage
+      per sample, the comparison showing improvement or stall, the reason the
+      loop finished, and the PR URL (if created) with the location of changed
+      files.
+    outputs:
+      - name: final-summary
+        type: file
+        path: teardown/final-summary.md
+        description: Final summary comparing results to setup/starting-summary.md and explaining why the loop finished
+      - name: pr-url
+        type: file
+        path: teardown/pr-url.txt
+        description: URL of the created pull request
