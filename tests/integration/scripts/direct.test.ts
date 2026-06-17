@@ -69,15 +69,13 @@ describe('setup-direct.sh', () => {
     const content = await fs.readFile(planPath, 'utf-8');
     const parsed = yaml.load(content) as Record<string, unknown>;
     expect(parsed.meta).toMatchObject({
-      title: 'FVT Coverage Run',
-      version: '1',
+      title: 'IBM CodeEngine samples/ai FVT coverage run',
+      version: '2',
       author: 'agentic-harness',
     });
-    expect(typeof (parsed.goal as Record<string, unknown>).description).toBe('string');
-    expect((parsed.goal as Record<string, unknown>).description).toContain('FVT Coverage Plan');
     expect(Array.isArray(parsed.inputs)).toBe(true);
-    expect(Array.isArray(parsed.outputs)).toBe(true);
-    expect(Array.isArray(parsed.completion_criteria)).toBe(true);
+    expect(parsed.phases).toBeDefined();
+    expect(parsed.rules).toBeDefined();
     expect(Array.isArray(parsed.rules)).toBe(true);
   });
 });
@@ -173,15 +171,12 @@ describe('run-direct.sh', () => {
     const planContent = fsSync.readFileSync(planPath, 'utf-8');
     const parsedPlan = yaml.load(planContent) as Record<string, unknown>;
     expect(parsedPlan.meta).toMatchObject({
-      title: 'FVT Coverage Run',
-      version: '1',
+      title: 'IBM CodeEngine samples/ai FVT coverage run',
+      version: '2',
       author: 'agentic-harness',
     });
-    expect(typeof (parsedPlan.goal as Record<string, unknown>).description).toBe('string');
-    expect((parsedPlan.goal as Record<string, unknown>).description).toContain('FVT Coverage Plan');
     expect(Array.isArray(parsedPlan.inputs)).toBe(true);
-    expect(Array.isArray(parsedPlan.outputs)).toBe(true);
-    expect(Array.isArray(parsedPlan.completion_criteria)).toBe(true);
+    expect(parsedPlan.phases).toBeDefined();
     expect(Array.isArray(parsedPlan.rules)).toBe(true);
 
     const rulesContent = fsSync.readFileSync(rulesPath, 'utf-8');

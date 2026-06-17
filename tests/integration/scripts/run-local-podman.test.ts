@@ -61,7 +61,7 @@ describe('run-local-podman script', () => {
     try {
       execFileSync('bash', [SCRIPT_PATH], {
         encoding: 'utf-8',
-        timeout: 5000,
+        timeout: 1000,
         env: {
           ...process.env,
           AGENTIC_NO_DOTENV: 'true',
