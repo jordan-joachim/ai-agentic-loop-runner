@@ -55,6 +55,12 @@ error() {
   echo "[setup-codeengine] ERROR: $*" >&2
 }
 
+# ---- Validate credentials ----
+if [ -z "${IBMCLOUD_API_KEY:-}" ]; then
+  error "IBMCLOUD_API_KEY is required"
+  exit 1
+fi
+
 # ---- Rebuild linked harness package if symlink ----
 HARNESS_PACKAGE_PATH="${REPO_ROOT}/node_modules/@agentic-loop/harness"
 if [ -L "${HARNESS_PACKAGE_PATH}" ]; then
@@ -64,12 +70,6 @@ if [ -L "${HARNESS_PACKAGE_PATH}" ]; then
   log "Harness package build complete"
 else
   log "Harness package is not a symlink; skipping build"
-fi
-
-# ---- Validate credentials ----
-if [ -z "${IBMCLOUD_API_KEY:-}" ]; then
-  echo "[setup-codeengine] ERROR: IBMCLOUD_API_KEY is required" >&2
-  exit 1
 fi
 
 # ---- Ensure ibmcloud CLI is available ----

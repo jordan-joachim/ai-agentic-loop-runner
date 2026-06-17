@@ -49,6 +49,7 @@ describe('setup-codeengine.sh', () => {
 
   it('fails when IBMCLOUD_API_KEY is missing', () => {
     const result = runScript(SETUP_SCRIPT, [], {
+      AGENTIC_NO_DOTENV: 'true',
       IBMCLOUD_API_KEY: '',
     });
     expect(result.status).not.toBe(0);
@@ -141,6 +142,7 @@ describe('watch-codeengine.sh', () => {
 
   it('fails when IBMCLOUD_API_KEY is missing', () => {
     const result = runScript(WATCH_SCRIPT, [], {
+      AGENTIC_NO_DOTENV: 'true',
       IBMCLOUD_API_KEY: '',
     });
     expect(result.status).not.toBe(0);

@@ -151,6 +151,35 @@ describe('run-direct.sh', () => {
     expect(result.stderr + result.stdout).not.toContain('OLLAMA_MODEL is required');
   });
 
+  it('validates missing KILO_API_KEY for kilo', () => {
+    const result = runScript(RUN_SCRIPT, [], {
+      AGENTIC_NO_DOTENV: 'true',
+      HARNESS_AGENT_RUNTIME: 'kilo',
+      KILO_API_KEY: '',
+    });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr + result.stdout).toContain('KILO_API_KEY');
+  });
+
+  it('accepts kilo runtime with valid KILO_API_KEY and passes optional provider/model', () => {
+    const result = runScript(
+      RUN_SCRIPT,
+      [],
+      {
+        AGENTIC_NO_DOTENV: 'true',
+        HARNESS_AGENT_RUNTIME: 'kilo',
+        KILO_API_KEY: 'test-kilo-key',
+        KILO_PROVIDER: 'anthropic',
+        KILO_MODEL: 'claude-sonnet-4-20250514',
+        // Avoid invoking the real Kilo runtime in tests by setting max iterations to 0.
+        HARNESS_MAX_ITERATIONS: '0',
+        HARNESS_TIME_LIMIT_MINUTES: '0',
+      },
+    );
+    expect(result.stderr + result.stdout).not.toContain('KILO_API_KEY is required');
+    expect(result.stderr + result.stdout).toContain('Running harness with runtime: kilo');
+  });
+
   it('generates a valid plan.yaml and rules.yaml before invoking the harness', () => {
     const planPath = path.join(REPO_ROOT, 'workspace', 'plan.yaml');
     const rulesPath = path.join(REPO_ROOT, 'workspace', 'rules.yaml');

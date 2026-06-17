@@ -6,6 +6,7 @@
 #
 # Required environment variables depend on HARNESS_AGENT_RUNTIME (default: mock).
 # For ollama-droid, requires OLLAMA_HOST, OLLAMA_MODELS, OLLAMA_API_KEY.
+# For kilo, requires KILO_API_KEY. Optional: KILO_PROVIDER, KILO_MODEL.
 #
 # Usage:
 #   ./scripts/run-direct.sh [prompt-file]
@@ -60,9 +61,15 @@ case "${HARNESS_AGENT_RUNTIME}" in
       exit 1
     fi
     ;;
+  kilo)
+    if [ -z "${KILO_API_KEY:-}" ]; then
+      error "KILO_API_KEY is required for HARNESS_AGENT_RUNTIME=kilo"
+      exit 1
+    fi
+    ;;
   *)
     error "Unsupported HARNESS_AGENT_RUNTIME: ${HARNESS_AGENT_RUNTIME}"
-    error "Supported values: mock, droid, ollama-droid"
+    error "Supported values: mock, droid, ollama-droid, kilo"
     exit 1
     ;;
 esac
@@ -84,5 +91,16 @@ log "Wrote rules to ${RULES_FILE}"
 # ---- Run harness ----
 log "Running harness with runtime: ${HARNESS_AGENT_RUNTIME}"
 log "Watch logs with: ${SCRIPT_DIR}/watch-direct.sh"
+
+# Make Kilo env vars visible to the harness process.
+if [ "${HARNESS_AGENT_RUNTIME}" = "kilo" ]; then
+  export KILO_API_KEY
+  if [ -n "${KILO_PROVIDER:-}" ]; then
+    export KILO_PROVIDER
+  fi
+  if [ -n "${KILO_MODEL:-}" ]; then
+    export KILO_MODEL
+  fi
+fi
 
 node --no-warnings "${REPO_ROOT}/node_modules/.bin/harness" --workspace "${WORKSPACE_DIR}"
