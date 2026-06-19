@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs/promises';
+import * as fsSync from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -32,6 +33,50 @@ describe('run-local-podman script', () => {
 
     expect(error).toBeDefined();
     expect((error as Error).message).toContain('OLLAMA_HOST');
+  });
+
+  it('does not load real credentials from .env during tests', () => {
+    const envPath = path.join(path.dirname(SCRIPT_PATH), '..', '.env');
+    const backupPath = `${envPath}.testbackup`;
+    const originalEnvExists = fsSync.existsSync(envPath);
+    if (originalEnvExists) {
+      fsSync.renameSync(envPath, backupPath);
+    }
+
+    fsSync.writeFileSync(
+      envPath,
+      'HARNESS_AGENT_RUNTIME=ollama-droid\nOLLAMA_HOST=http://localhost:11434\nOLLAMA_MODELS=codellama:7b\nOLLAMA_API_KEY=real-secret-from-env\nGITHUB_TOKEN=ghp_real_token\nIBMCLOUD_API_KEY=real-ibm-key\n',
+      'utf-8',
+    );
+
+    try {
+      let error: Error | undefined;
+      try {
+        execFileSync('bash', [SCRIPT_PATH], {
+          encoding: 'utf-8',
+          env: {
+            ...process.env,
+            AGENTIC_NO_DOTENV: 'true',
+            OLLAMA_HOST: '',
+            OLLAMA_MODELS: 'codellama:7b',
+            OLLAMA_API_KEY: 'test-key',
+          },
+        });
+      } catch (err) {
+        error = err as Error;
+      }
+
+      expect(error).toBeDefined();
+      expect((error as Error).message).toContain('OLLAMA_HOST');
+      expect((error as Error).message).not.toContain('real-secret-from-env');
+      expect((error as Error).message).not.toContain('ghp_real_token');
+      expect((error as Error).message).not.toContain('real-ibm-key');
+    } finally {
+      fsSync.rmSync(envPath, { force: true });
+      if (originalEnvExists) {
+        fsSync.renameSync(backupPath, envPath);
+      }
+    }
   });
 
   it('fails when OLLAMA_MODELS and deprecated OLLAMA_MODEL are both missing', () => {

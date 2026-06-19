@@ -26,7 +26,14 @@ function runScript(
   try {
     stdout = execFileSync('bash', [scriptPath, ...args], {
       encoding: 'utf-8',
-      env: { ...process.env, ...env },
+      // Always default to AGENTIC_NO_DOTENV=true so tests cannot accidentally
+      // load the user's .env file. Callers may override by passing the
+      // variable explicitly.
+      env: {
+        ...process.env,
+        AGENTIC_NO_DOTENV: 'true',
+        ...env,
+      },
     });
   } catch (err) {
     status = (err as Error & { status?: number }).status ?? 1;

@@ -28,7 +28,14 @@ function runScript(
   try {
     stdout = execFileSync('bash', [scriptPath, ...args], {
       encoding: 'utf-8',
-      env: { ...process.env, ...env },
+      // Always default to AGENTIC_NO_DOTENV=true so tests cannot accidentally
+      // load the user's .env file. Callers may override by passing the
+      // variable explicitly.
+      env: {
+        ...process.env,
+        AGENTIC_NO_DOTENV: 'true',
+        ...env,
+      },
     });
   } catch (err) {
     status = (err as Error & { status?: number }).status ?? 1;
@@ -138,6 +145,7 @@ describe('run-direct.sh', () => {
 
   it('accepts deprecated OLLAMA_MODEL fallback', () => {
     const result = runScript(RUN_SCRIPT, [], {
+      AGENTIC_NO_DOTENV: 'true',
       HARNESS_AGENT_RUNTIME: 'ollama-droid',
       OLLAMA_HOST: 'http://localhost:11434',
       OLLAMA_MODELS: '',
@@ -191,6 +199,7 @@ describe('run-direct.sh', () => {
     }
 
     const result = runScript(RUN_SCRIPT, [], {
+      AGENTIC_NO_DOTENV: 'true',
       HARNESS_AGENT_RUNTIME: 'mock',
     });
 
@@ -262,6 +271,7 @@ describe('run-direct.sh', () => {
 
     try {
       const result = runScript(RUN_SCRIPT, [], {
+        AGENTIC_NO_DOTENV: 'true',
         HARNESS_AGENT_RUNTIME: 'mock',
       });
 
