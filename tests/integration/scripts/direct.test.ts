@@ -271,7 +271,7 @@ describe('run-direct.sh', () => {
 
     try {
       const result = runScript(RUN_SCRIPT, [], {
-        AGENTIC_NO_DOTENV: 'true',
+        AGENTIC_NO_DOTENV: 'false',
         HARNESS_AGENT_RUNTIME: 'mock',
       });
 
