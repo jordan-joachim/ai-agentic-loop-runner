@@ -66,6 +66,8 @@ case "${HARNESS_AGENT_RUNTIME}" in
       error "KILO_API_KEY is required for HARNESS_AGENT_RUNTIME=kilo"
       exit 1
     fi
+    # Default to the free Kilo Auto tier when no provider/model is supplied.
+    KILO_MODEL="${KILO_MODEL:-kilo-auto/free}"
     ;;
   *)
     error "Unsupported HARNESS_AGENT_RUNTIME: ${HARNESS_AGENT_RUNTIME}"
@@ -95,11 +97,9 @@ log "Watch logs with: ${SCRIPT_DIR}/watch-direct.sh"
 # Make Kilo env vars visible to the harness process.
 if [ "${HARNESS_AGENT_RUNTIME}" = "kilo" ]; then
   export KILO_API_KEY
+  export KILO_MODEL
   if [ -n "${KILO_PROVIDER:-}" ]; then
     export KILO_PROVIDER
-  fi
-  if [ -n "${KILO_MODEL:-}" ]; then
-    export KILO_MODEL
   fi
 fi
 
