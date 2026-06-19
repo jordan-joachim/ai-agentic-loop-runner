@@ -31,6 +31,17 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+# ---- Resolve the linked harness package path for the build context ----
+HARNESS_PACKAGE_PATH="${REPO_ROOT}/node_modules/@agentic-loop/harness"
+BUILD_CONTEXT_ARGS=()
+if [ -L "${HARNESS_PACKAGE_PATH}" ]; then
+  HARNESS_REAL_PATH="$(readlink -f "${HARNESS_PACKAGE_PATH}")"
+  echo "[run-local-podman] Detected linked harness package at ${HARNESS_REAL_PATH}; building..."
+  (cd "${HARNESS_REAL_PATH}" && npm run build)
+  echo "[run-local-podman] Harness package build complete"
+  BUILD_CONTEXT_ARGS=(--build-context "harness=${HARNESS_REAL_PATH}")
+fi
+
 # ---- Load optional .env from repo root unless disabled ----
 if [ "${AGENTIC_NO_DOTENV:-false}" != "true" ] && [ -f "${REPO_ROOT}/.env" ]; then
   set -a
@@ -68,6 +79,7 @@ echo "[run-local-podman] Follow container logs live with: podman logs -f agentic
 podman build \
   -f "${REPO_ROOT}/Containerfile" \
   --build-arg AGENT_RUNTIME=ollama-droid \
+  "${BUILD_CONTEXT_ARGS[@]}" \
   -t "${IMAGE_TAG}" \
   "${REPO_ROOT}"
 

@@ -37,13 +37,15 @@ error() {
   echo "[setup-podman] ERROR: $*" >&2
 }
 
-# ---- Rebuild linked harness package if symlink ----
+# ---- Resolve the linked harness package path for the build context ----
 HARNESS_PACKAGE_PATH="${REPO_ROOT}/node_modules/@agentic-loop/harness"
+BUILD_CONTEXT_ARGS=()
 if [ -L "${HARNESS_PACKAGE_PATH}" ]; then
   HARNESS_REAL_PATH="$(readlink -f "${HARNESS_PACKAGE_PATH}")"
   log "Detected linked harness package at ${HARNESS_REAL_PATH}; building..."
   (cd "${HARNESS_REAL_PATH}" && npm run build)
   log "Harness package build complete"
+  BUILD_CONTEXT_ARGS=(--build-context "harness=${HARNESS_REAL_PATH}")
 else
   log "Harness package is not a symlink; skipping build"
 fi
@@ -84,7 +86,7 @@ compute_checksum() {
     "${REPO_ROOT}/package.json" \
     "${REPO_ROOT}/package-lock.json" \
     "${REPO_ROOT}/tsconfig.json" \
-    "${REPO_ROOT}/bin/run-sample-fvt" \
+    "${REPO_ROOT}/bin/harness" \
     "${REPO_ROOT}/src/index.ts" \
     "${REPO_ROOT}/src/sample-fvt/coverage-calculator.ts" \
     "${REPO_ROOT}/src/sample-fvt/coverage-reviewer.ts" \
@@ -118,6 +120,7 @@ if [ "${NEED_BUILD}" = "true" ]; then
   podman build \
     -f "${REPO_ROOT}/Containerfile" \
     --build-arg AGENT_RUNTIME=ollama-droid \
+    "${BUILD_CONTEXT_ARGS[@]}" \
     -t "${IMAGE_TAG}" \
     "${REPO_ROOT}"
   echo "${CURRENT_CHECKSUM}" > "${CHECKSUM_FILE}"
