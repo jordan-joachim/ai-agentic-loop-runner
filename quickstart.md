@@ -1,7 +1,6 @@
 # Quickstart
 
-Get the Agentic Harness running against IBM Code Engine AI samples in three execution modes:
-local direct execution, local Podman, and IBM Cloud Code Engine.
+Get the Agentic Harness runner package running against IBM Code Engine AI samples in three execution modes: local direct execution, local Podman, and IBM Cloud Code Engine.
 
 ---
 
@@ -9,15 +8,15 @@ local direct execution, local Podman, and IBM Cloud Code Engine.
 
 | Execution mode | Tools | Notes |
 |---|---|---|
-| All | [Node.js](https://nodejs.org/) 22 LTS | Required by the harness and example repo |
+| All | [Node.js](https://nodejs.org/) 22 LTS | Required by the harness and runner package |
 | Local Podman execution | [Podman](https://podman.io/) 5.x | For local container execution |
 | IBM Cloud Code Engine execution | [IBM Cloud CLI](https://cloud.ibm.com/docs/cli) | With `code-engine`, `cloud-object-storage`, and `iam` plugins |
 | IBM Cloud Code Engine execution | IBM Cloud account | API key with permission to create Code Engine and COS resources |
 
-Install the example repository dependencies once:
+Install the runner package dependencies once:
 
 ```bash
-cd /path/to/agentic-loop-codeengine-samples-example
+cd /path/to/ai-agentic-loop-runner
 npm install
 ```
 
@@ -27,7 +26,7 @@ If the `@agentic-loop/harness` package is not yet published on npm, link it loca
 cd /path/to/AgenticLoop
 npm link
 
-cd /path/to/agentic-loop-codeengine-samples-example
+cd /path/to/ai-agentic-loop-runner
 npm link @agentic-loop/harness
 ```
 
@@ -77,10 +76,10 @@ export OLLAMA_API_KEY="your-ollama-api-key"
 ./scripts/run-direct.sh
 ```
 
-The default prompt is `prompts/fvt-coverage.md`. Pass a different prompt file as the first argument:
+Pass a prompt file as the first argument (the default prompt is no longer bundled in this repo; obtain it from `ai-agentic-loop-prompts`):
 
 ```bash
-./scripts/run-direct.sh /path/to/your/plan.md
+./scripts/run-direct.sh /path/to/ai-agentic-loop-prompts/fvt-coverage.md
 ```
 
 Local direct execution writes the prompt to `workspace/plan.yaml` and runs `node node_modules/.bin/harness --workspace workspace`.
@@ -89,7 +88,7 @@ Local direct execution writes the prompt to `workspace/plan.yaml` and runs `node
 
 ## 4. Quickstart — local Podman
 
-Build and run the example container locally. This phase always uses the `ollama-droid` runtime.
+Build and run the runner container locally. This phase always uses the `ollama-droid` runtime.
 
 ```bash
 export OLLAMA_HOST="http://host.containers.internal:11434"
@@ -100,7 +99,7 @@ export OLLAMA_API_KEY="your-ollama-api-key"
 ./scripts/run-podman.sh
 ```
 
-`setup-podman.sh` checks for Podman 5.x and builds the image `agentic-loop-codeengine-samples-example:latest` only when the source files or `Containerfile` have changed. To force a rebuild, run `NO_CACHE=true ./scripts/setup-podman.sh`.
+`setup-podman.sh` checks for Podman 5.x and builds the image `ai-agentic-loop-runner:latest` only when the source files or `Containerfile` have changed. To force a rebuild, run `NO_CACHE=true ./scripts/setup-podman.sh`.
 
 `run-podman.sh` names the container `agentic-loop-fvt`, mounts `workspace/` as `/workspace`, and passes all required environment variables to the container.
 
@@ -116,7 +115,7 @@ export IBMCLOUD_REGION="us-south"
 
 ./scripts/setup-codeengine.sh
 export COS_BUCKET="agentic-loop-harness-..."   # value printed by setup-codeengine.sh
-./scripts/run-codeengine.sh
+./scripts/run-codeengine.sh /path/to/ai-agentic-loop-prompts/fvt-coverage.md
 ```
 
 `setup-codeengine.sh` creates or reuses:

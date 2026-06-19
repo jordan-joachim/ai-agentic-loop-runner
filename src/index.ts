@@ -1,8 +1,8 @@
 /**
- * IBM Code Engine AI Samples — Sample FVT Example
+ * ai-agentic-loop-runner — Sample FVT runner package
  *
- * This package demonstrates how to consume the agentic-loop harness to run
- * coverage-driven FVT over IBM Code Engine AI sample projects.
+ * This package consumes the agentic-loop harness to run coverage-driven FVT
+ * over IBM Code Engine AI sample projects.
  */
 
 export {

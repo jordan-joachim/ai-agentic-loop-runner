@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 /**
- * bin/run-sample-fvt — CLI entry point for the example repository.
+ * bin/run-sample-fvt — CLI entry point for the runner package.
  *
  * Delegates to the @agentic-loop/harness `sample-fvt` subcommand so that
- * the example repo reuses the harness implementation with minimal wiring.
+ * the runner package reuses the harness implementation with minimal wiring.
  *
  * Usage:
  *   run-sample-fvt --workspace <path> [--samples-dir <path>]

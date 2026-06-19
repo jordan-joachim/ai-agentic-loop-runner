@@ -2,7 +2,7 @@
 #
 # scripts/setup-direct.sh
 #
-# Prepare the example repository for direct harness execution.
+# Prepare the runner package for direct harness execution.
 # Idempotent: repeated runs do not overwrite existing files.
 #
 # Required environment variables: none.
@@ -62,9 +62,9 @@ if [ "${NODE_MAJOR}" -lt 22 ]; then
   exit 1
 fi
 
-# ---- Install example repo dependencies if needed ----
+# ---- Install runner package dependencies if needed ----
 if [ ! -d "${REPO_ROOT}/node_modules" ]; then
-  log "Installing example repository dependencies..."
+  log "Installing runner package dependencies..."
   (cd "${REPO_ROOT}" && npm install)
 else
   log "node_modules already present; skipping npm install"

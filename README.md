@@ -1,6 +1,6 @@
-# agentic-loop-codeengine-samples-example
+# ai-agentic-loop-runner
 
-Example repository demonstrating how to use the [Agentic Harness](https://github.com/factoryai/agentic-loop) to generate and run FVT tests for IBM Code Engine AI samples.
+Agentic Harness runner package that uses the [Agentic Harness](https://github.com/factoryai/agentic-loop) to generate and run sample FVT loops. It provides execution scripts for direct, Podman, and IBM Cloud Code Engine modes.
 
 ## Overview
 
@@ -15,17 +15,15 @@ This package consumes the `agentic-loop` harness and wires it to:
 
 ```text
 .
-├── bin/run-sample-fvt                # CLI entry point
+├── bin/run-sample-fvt                # CLI entry point that delegates to the harness sample-fvt subcommand
 ├── Containerfile                     # Podman/Docker image build
 ├── package.json
 ├── .droids/                           # Droid / Ollama agent configuration
 │   ├── ollama-droid.md
 │   └── ollama.env.example
-├── prompts/                           # Harness prompts
-│   └── fvt-coverage.md
 ├── src/
 │   ├── index.ts                    # Public API exports
-│   └── sample-fvt/                 # Sample FVT implementation (copied from agentic-loop)
+│   └── sample-fvt/                 # Sample FVT implementation
 │       ├── coverage-calculator.ts
 │       ├── coverage-reviewer.ts
 │       ├── planner.ts
@@ -72,7 +70,7 @@ and source it before running the scripts. `.droids/ollama.env`, `*.key`, and
 # Link the local harness package until it is published on npm.
 cd /path/to/AgenticLoop
 npm link
-cd /path/to/agentic-loop-codeengine-samples-example
+cd /path/to/ai-agentic-loop-runner
 npm link @agentic-loop/harness
 
 # Mount a local clone of the Code Engine samples repo and run.
@@ -120,7 +118,7 @@ and end of the run so it is easy to find.
 ### Manual build and run
 
 ```bash
-podman build -f Containerfile --build-arg AGENT_RUNTIME=ollama-droid -t agentic-loop-codeengine-samples-example:latest .
+podman build -f Containerfile --build-arg AGENT_RUNTIME=ollama-droid -t ai-agentic-loop-runner:latest .
 mkdir -p ./workspace
 podman run --rm \
   -v "$PWD/workspace:/workspace:Z" \
@@ -132,7 +130,7 @@ podman run --rm \
   -e OLLAMA_API_KEY="$OLLAMA_API_KEY" \
   -e DROID_REVIEWER_CONFIG=/workspace/.droids/ollama-droid.md \
   -e FVT_MAX_ITERATIONS=5 \
-  agentic-loop-codeengine-samples-example:latest \
+  ai-agentic-loop-runner:latest \
   --samples-dir /workspace/inputs/code-engine-samples/samples/ai
 ```
 
@@ -230,7 +228,7 @@ file contains placeholder values only.
 
 ## Configuration
 
-The example is configured through environment variables:
+The runner package is configured through environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|

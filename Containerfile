@@ -4,6 +4,9 @@
 # package sources. When building locally, pass:
 #   --build-context harness=/absolute/path/to/AgenticLoop
 # When the harness package is published to npm, this context can be omitted.
+#
+# Build example:
+#   podman build -f Containerfile --build-arg AGENT_RUNTIME=ollama-droid -t ai-agentic-loop-runner:latest .
 FROM scratch AS harness
 COPY . /harness
 
@@ -18,7 +21,7 @@ RUN npm ci --ignore-scripts
 
 # If a local harness package build context was provided, replace the npm/symlink
 # resolution with a real copy and build it. This keeps the production image
-# self-contained when built from the example repo.
+# self-contained when built from the runner repo.
 RUN --mount=type=bind,from=harness,source=.,target=/harness-package,readonly \
     if [ -f /harness-package/package.json ] && [ -d /harness-package/src ]; then \
       echo "[build] Installing local harness package from build context" && \

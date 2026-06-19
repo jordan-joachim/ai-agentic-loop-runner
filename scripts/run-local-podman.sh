@@ -50,7 +50,7 @@ if [ "${AGENTIC_NO_DOTENV:-false}" != "true" ] && [ -f "${REPO_ROOT}/.env" ]; th
   set +a
 fi
 
-IMAGE_TAG="agentic-loop-codeengine-samples-example:latest"
+IMAGE_TAG="ai-agentic-loop-runner:latest"
 HARNESS_WORKSPACE_DIR="${HARNESS_WORKSPACE_DIR:-workspace}"
 HARNESS_RULES_FILE="${HARNESS_RULES_FILE:-rules.yaml}"
 WORKSPACE_DIR="${REPO_ROOT}/${HARNESS_WORKSPACE_DIR}"

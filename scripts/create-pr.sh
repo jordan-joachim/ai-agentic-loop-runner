@@ -4,7 +4,7 @@
 #
 # Idempotently commit FVT test changes in the workspace and open a GitHub pull
 # request. All credentials are read from environment variables; nothing is
-# committed to the example repository itself.
+# committed to the runner repository itself.
 #
 # Required environment variables:
 #   GITHUB_TOKEN   - GitHub token with repo and workflow scopes

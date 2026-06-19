@@ -1,6 +1,6 @@
 /**
  * Integration test for VAL-CRED-005:
- * Both .env.example files document every supported HARNESS_AGENT_RUNTIME
+ * The runner repo .env.example documents every supported HARNESS_AGENT_RUNTIME
  * value and the required credential env vars for each runtime.
  */
 
@@ -11,8 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const EXAMPLE_REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
-const HARNESS_REPO_ROOT = path.resolve(EXAMPLE_REPO_ROOT, '..', 'AgenticLoop');
+const RUNNER_REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 
 const RUNTIMES = ['mock', 'droid', 'ollama-droid', 'kilo'];
 const REQUIRED_OLLAMA_VARS = ['OLLAMA_HOST', 'OLLAMA_MODELS', 'OLLAMA_API_KEY'];
@@ -32,14 +31,14 @@ function describeRepository(repoRoot: string): string {
 
 /**
  * Integration test for VAL-CRED-006:
- * The example repo test configuration isolates tests from the user's .env
+ * The runner repo test configuration isolates tests from the user's .env
  * file. The harness CLI can be invoked with AGENTIC_NO_DOTENV=true or by
  * passing a sanitized env map, and the real .env credentials are not loaded.
  */
 
 describe('VAL-CRED-006: tests do not load real .env credentials', () => {
   it('scripts honor AGENTIC_NO_DOTENV=true and skip loading .env', () => {
-    // Every production script in the example repo checks AGENTIC_NO_DOTENV
+    // Every production script in the runner repo checks AGENTIC_NO_DOTENV
     // before sourcing .env, so tests can disable .env loading safely.
     const scripts = [
       'setup-direct.sh',
@@ -56,7 +55,7 @@ describe('VAL-CRED-006: tests do not load real .env credentials', () => {
     ];
 
     for (const scriptName of scripts) {
-      const scriptPath = path.join(EXAMPLE_REPO_ROOT, 'scripts', scriptName);
+      const scriptPath = path.join(RUNNER_REPO_ROOT, 'scripts', scriptName);
       expect(fs.existsSync(scriptPath)).toBe(true);
       const content = fs.readFileSync(scriptPath, 'utf-8');
       expect(content).toContain('AGENTIC_NO_DOTENV');
@@ -65,7 +64,7 @@ describe('VAL-CRED-006: tests do not load real .env credentials', () => {
   });
 
   it('run-direct.sh with AGENTIC_NO_DOTENV=true does not use credentials from .env', () => {
-    const envPath = path.join(EXAMPLE_REPO_ROOT, '.env');
+    const envPath = path.join(RUNNER_REPO_ROOT, '.env');
     const backupPath = `${envPath}.testbackup`;
     const originalEnvExists = fs.existsSync(envPath);
     if (originalEnvExists) {
@@ -82,7 +81,7 @@ describe('VAL-CRED-006: tests do not load real .env credentials', () => {
       let stdout = '';
       let stderr = '';
       try {
-        stdout = execFileSync('bash', [path.join(EXAMPLE_REPO_ROOT, 'scripts', 'run-direct.sh')], {
+        stdout = execFileSync('bash', [path.join(RUNNER_REPO_ROOT, 'scripts', 'run-direct.sh')], {
           encoding: 'utf-8',
           env: {
             ...process.env,
@@ -112,36 +111,35 @@ describe('VAL-CRED-006: tests do not load real .env credentials', () => {
 });
 
 describe('VAL-CRED-005: .env.example runtime and credential coverage', () => {
-  for (const repoRoot of [HARNESS_REPO_ROOT, EXAMPLE_REPO_ROOT]) {
-    const repoName = describeRepository(repoRoot);
+  const repoRoot = RUNNER_REPO_ROOT;
+  const repoName = describeRepository(repoRoot);
 
-    describe(`${repoName} .env.example`, () => {
-      let content: string;
+  describe(`${repoName} .env.example`, () => {
+    let content: string;
 
-      it('exists and is readable', () => {
-        content = readEnvExample(repoRoot);
-        expect(content.length).toBeGreaterThan(0);
-      });
-
-      it('documents every supported HARNESS_AGENT_RUNTIME value', () => {
-        content = readEnvExample(repoRoot);
-        expect(content).toMatch(/HARNESS_AGENT_RUNTIME\s*=/);
-        for (const runtime of RUNTIMES) {
-          expect(content).toContain(runtime);
-        }
-      });
-
-      it('documents required Ollama credential env vars', () => {
-        content = readEnvExample(repoRoot);
-        for (const envVar of REQUIRED_OLLAMA_VARS) {
-          expect(content).toContain(envVar);
-        }
-      });
-
-      it('documents required Kilo credential env var', () => {
-        content = readEnvExample(repoRoot);
-        expect(content).toContain(REQUIRED_KILO_VAR);
-      });
+    it('exists and is readable', () => {
+      content = readEnvExample(repoRoot);
+      expect(content.length).toBeGreaterThan(0);
     });
-  }
+
+    it('documents every supported HARNESS_AGENT_RUNTIME value', () => {
+      content = readEnvExample(repoRoot);
+      expect(content).toMatch(/HARNESS_AGENT_RUNTIME\s*=/);
+      for (const runtime of RUNTIMES) {
+        expect(content).toContain(runtime);
+      }
+    });
+
+    it('documents required Ollama credential env vars', () => {
+      content = readEnvExample(repoRoot);
+      for (const envVar of REQUIRED_OLLAMA_VARS) {
+        expect(content).toContain(envVar);
+      }
+    });
+
+    it('documents required Kilo credential env var', () => {
+      content = readEnvExample(repoRoot);
+      expect(content).toContain(REQUIRED_KILO_VAR);
+    });
+  });
 });

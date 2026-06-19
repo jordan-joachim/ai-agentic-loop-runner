@@ -12,7 +12,7 @@
 #   CE_RESOURCE_GROUP     - resource group name (default: agenticloop)
 #   CE_PROJECT_NAME       - Code Engine project name (default: agentic-loop-ce-project)
 #   CE_JOB_NAME           - Code Engine job name (default: agentic-loop-harness-job)
-#   CE_IMAGE              - container image to run (default: agentic-loop-codeengine-samples-example:latest)
+#   CE_IMAGE              - container image to run (default: ai-agentic-loop-runner:latest)
 #   COS_BUCKET            - COS bucket name (default: agentic-loop-harness-<random>)
 #
 # Usage:
@@ -36,7 +36,7 @@ RESOURCE_GROUP="${CE_RESOURCE_GROUP:-agenticloop}"
 REGION="${IBMCLOUD_REGION:-us-south}"
 PROJECT_NAME="${CE_PROJECT_NAME:-agentic-loop-ce-project}"
 JOB_NAME="${CE_JOB_NAME:-agentic-loop-harness-job}"
-IMAGE="${CE_IMAGE:-agentic-loop-codeengine-samples-example:latest}"
+IMAGE="${CE_IMAGE:-ai-agentic-loop-runner:latest}"
 
 # Generate a deterministic but unique bucket name when not provided.
 if [ -z "${COS_BUCKET:-}" ]; then

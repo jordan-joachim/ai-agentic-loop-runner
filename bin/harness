@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 /**
- * bin/harness — generic harness CLI entry point for the example repository.
+ * bin/harness — generic harness CLI entry point for the runner package.
  *
- * The example repo consumes the generic @agentic-loop/harness package and
+ * The runner package consumes the generic @agentic-loop/harness package and
  * re-exposes its bin/harness entrypoint in its own bin/ directory. The
  * Containerfile copies this script into the image so the generic
  * `node bin/harness --workspace /workspace` ENTRYPOINT works.

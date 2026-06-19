@@ -1,6 +1,6 @@
 /**
  * Integration tests for VAL-EXAMPLE-007:
- * The example repo Containerfile uses the generic harness bin/harness
+ * The runner repo Containerfile uses the generic harness bin/harness
  * entrypoint (not a stale bin/run-sample-fvt), accepts an AGENT_RUNTIME
  * build argument that sets HARNESS_AGENT_RUNTIME, and does not hardcode
  * FVT-specific defaults. It also builds a self-contained image when a local
@@ -16,10 +16,12 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 const CONTAINERFILE = path.join(REPO_ROOT, 'Containerfile');
-const HARNESS_REPO_ROOT = path.resolve(REPO_ROOT, '..', 'AgenticLoop');
-const IMAGE_TAG = `agentic-loop-example-harness-cli-test-${Date.now()}`;
+const HARNESS_REPO_ROOT = process.env.AGENTIC_HARNESS_REPO_ROOT
+  ? path.resolve(process.env.AGENTIC_HARNESS_REPO_ROOT)
+  : path.resolve(REPO_ROOT, '..', 'AgenticLoop');
+const IMAGE_TAG = `runner-harness-cli-test-${Date.now()}`;
 
-describe('VAL-EXAMPLE-007: example repo Containerfile uses harness CLI', () => {
+describe('VAL-EXAMPLE-007: runner repo Containerfile uses harness CLI', () => {
   it('Containerfile exists and is readable', () => {
     expect(fs.existsSync(CONTAINERFILE)).toBe(true);
     const content = fs.readFileSync(CONTAINERFILE, 'utf-8');

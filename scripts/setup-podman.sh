@@ -2,7 +2,7 @@
 #
 # scripts/setup-podman.sh
 #
-# Prepare the example repository for local Podman execution.
+# Prepare the runner package for local Podman execution.
 # Idempotent: repeated runs rebuild the image only when sources changed.
 #
 # Required environment variables: none.
@@ -27,7 +27,7 @@ HARNESS_WORKSPACE_DIR="${HARNESS_WORKSPACE_DIR:-workspace}"
 HARNESS_PROMPT_FILE="${HARNESS_PROMPT_FILE:-prompts/fvt-coverage.md}"
 HARNESS_RULES_FILE="${HARNESS_RULES_FILE:-rules.yaml}"
 WORKSPACE_DIR="${REPO_ROOT}/${HARNESS_WORKSPACE_DIR}"
-IMAGE_TAG="agentic-loop-codeengine-samples-example:latest"
+IMAGE_TAG="ai-agentic-loop-runner:latest"
 
 log() {
   echo "[setup-podman] $*"

@@ -1,8 +1,8 @@
 {
-  "name": "@agentic-loop/codeengine-samples-example",
+  "name": "@agentic-loop/runner",
   "version": "0.1.0",
   "private": true,
-  "description": "Example repository demonstrating Agentic Harness sample FVT for IBM Code Engine AI samples",
+  "description": "Agentic Harness runner package for sample FVT loops with direct, Podman, and Code Engine execution scripts",
   "type": "module",
   "bin": {
     "run-sample-fvt": "./bin/run-sample-fvt"

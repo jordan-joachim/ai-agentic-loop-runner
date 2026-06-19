@@ -169,7 +169,7 @@ function buildLegacyPlan(promptPath, prompt, rules) {
     goal: {
       description: prompt,
       measurable:
-        "The example repo's test suite has more passing tests and higher coverage than at the start of the run.",
+        "The target repo's test suite has more passing tests and higher coverage than at the start of the run.",
     },
     inputs: [
       {
