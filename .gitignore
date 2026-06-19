@@ -1,6 +1,7 @@
 node_modules/
 dist/
 workspace/
+.cache/
 .DS_Store
 *.log
 .env
