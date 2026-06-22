@@ -1,15 +1,54 @@
 # ai-agentic-loop-runner
 
-The FVT coverage implementation, prompts, scripts, and example configuration
-that previously lived in this repository have moved to the
-[ai-agentic-loop-prompts](https://github.com/jordan-joachim/ai-agentic-loop-prompts)
-repository under the
-[`fvt-coverage/`](https://github.com/jordan-joachim/ai-agentic-loop-prompts/tree/master/fvt-coverage)
-subfolder.
+Thin orchestration package that consumes
+[`@ai-agentic-loop/harness`](https://github.com/jordan-joachim/ai-agentic-loop-harness)
+and provides convenient scripts for running the AI agentic loop harness directly
+with Node.js and inside a Podman container.
 
-Please see
-<https://github.com/jordan-joachim/ai-agentic-loop-prompts/tree/master/fvt-coverage>
-for the runnable Code Engine AI samples FVT coverage package.
+## Purpose
+
+The runner is a lightweight consumer of the generic harness package. It does not
+contain harness logic itself. Instead it provides:
+
+- **Orchestration scripts** in `scripts/` that build the harness container image,
+  run it against a workspace, and stream live logs.
+- **Direct execution** support via the harness CLI, using the same workspace
+  layout and plan format.
+- **Podman execution** support that builds and runs the harness container with a
+  bind-mounted workspace directory.
+
+## Relationship to the Harness
+
+The harness package (`@ai-agentic-loop/harness`) contains the core Plan-Do-Review
+loop, agent runtime adapters (mock, droid, ollama-droid, kilo, codex), plan
+parser/validator, workspace implementations, and the `bin/harness` CLI entry
+point. See the
+[harness documentation](https://github.com/jordan-joachim/ai-agentic-loop-harness)
+for details on plan authoring, agent configuration, and runtime selection.
+
+This runner package wraps the harness with scripts that handle:
+
+- Resolving the harness repository path
+- Building the container image with the selected agent runtime
+- Validating environment variables and credentials
+- Bind-mounting the workspace into the container
+- Streaming live logs from the running container
+
+## Quick Start
+
+```bash
+# Install dependencies
+npm install
+
+# Run type checking
+npm run typecheck
+
+# Run linting
+npm run lint
+
+# Run tests
+npm test
+```
 
 ## License
 
