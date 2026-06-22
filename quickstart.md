@@ -20,14 +20,14 @@ cd /path/to/ai-agentic-loop-runner
 npm install
 ```
 
-If the `@agentic-loop/harness` package is not yet published on npm, link it locally:
+If the `@ai-agentic-loop/harness` package is not yet published on npm, link it locally:
 
 ```bash
-cd /path/to/AgenticLoop
+cd /path/to/ai-agentic-loop-harness
 npm link
 
 cd /path/to/ai-agentic-loop-runner
-npm link @agentic-loop/harness
+npm link @ai-agentic-loop/harness
 ```
 
 ---
@@ -45,10 +45,10 @@ All credentials are provided at run time through environment variables. Do not c
 | `IBMCLOUD_API_KEY` | IBM Cloud Code Engine execution | IBM Cloud API key with permissions for Code Engine and COS |
 | `IBMCLOUD_REGION` | IBM Cloud Code Engine execution | Target IBM Cloud region (default: `us-south`) |
 
-For local convenience, copy `.droids/ollama.env.example` to `.droids/ollama.env`, fill in real values, and source it before running scripts:
+For local convenience, copy `../ai-agentic-loop-harness/agent-config-samples/ollama.env.example` to `.droids/ollama.env`, fill in real values, and source it before running scripts:
 
 ```bash
-cp .droids/ollama.env.example .droids/ollama.env
+cp ../ai-agentic-loop-harness/agent-config-samples/ollama.env.example .droids/ollama.env
 # edit .droids/ollama.env with your values
 source .droids/ollama.env
 ```

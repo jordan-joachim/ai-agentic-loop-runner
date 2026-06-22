@@ -1,8 +1,8 @@
 {
-  "name": "@agentic-loop/runner",
+  "name": "@ai-agentic-loop/runner",
   "version": "0.1.0",
   "private": true,
-  "description": "Agentic Harness runner package for sample FVT loops with direct, Podman, and Code Engine execution scripts",
+  "description": "ai-agentic-loop-harness runner package for sample FVT loops with direct, Podman, and Code Engine execution scripts",
   "type": "module",
   "bin": {
     "run-sample-fvt": "./bin/run-sample-fvt"
@@ -18,7 +18,7 @@
     "format:check": "prettier --check 'src/**/*.ts' 'tests/**/*.ts'"
   },
   "dependencies": {
-    "@agentic-loop/harness": "file:../AgenticLoop",
+    "@ai-agentic-loop/harness": "file:../ai-agentic-loop-harness",
     "js-yaml": "^4.1.0"
   },
   "devDependencies": {

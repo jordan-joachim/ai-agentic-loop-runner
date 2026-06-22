@@ -62,7 +62,7 @@ if [ -z "${IBMCLOUD_API_KEY:-}" ]; then
 fi
 
 # ---- Rebuild linked harness package if symlink ----
-HARNESS_PACKAGE_PATH="${REPO_ROOT}/node_modules/@agentic-loop/harness"
+HARNESS_PACKAGE_PATH="${REPO_ROOT}/node_modules/@ai-agentic-loop/harness"
 if [ -L "${HARNESS_PACKAGE_PATH}" ]; then
   HARNESS_REAL_PATH="$(readlink -f "${HARNESS_PACKAGE_PATH}")"
   log "Detected linked harness package at ${HARNESS_REAL_PATH}; building..."

@@ -18,9 +18,6 @@ This package consumes the `agentic-loop` harness and wires it to:
 ├── bin/run-sample-fvt                # CLI entry point that delegates to the harness sample-fvt subcommand
 ├── Containerfile                     # Podman/Docker image build
 ├── package.json
-├── .droids/                           # Droid / Ollama agent configuration
-│   ├── ollama-droid.md
-│   └── ollama.env.example
 ├── src/
 │   ├── index.ts                    # Public API exports
 │   └── sample-fvt/                 # Sample FVT implementation
@@ -60,18 +57,18 @@ are committed to the repository.
 | `GITHUB_REPO` | No | Target repository in `owner/repo` form for the PR (optional; also read from plan metadata or git remote) |
 | `GITHUB_BASE_BRANCH` | No | Base branch for the PR (default: `master`; also read from plan metadata) |
 
-Copy `.droids/ollama.env.example` to `.droids/ollama.env`, fill in real values,
-and source it before running the scripts. `.droids/ollama.env`, `*.key`, and
+Copy `../ai-agentic-loop-harness/agent-config-samples/ollama.env.example` to `.droids/ollama.env`, fill in real values,
+and source it before running the scripts. `.droids/`, `*.key`, and
 `*.token` are blocked by `.gitignore`.
 
 ### Quick start
 
 ```bash
 # Link the local harness package until it is published on npm.
-cd /path/to/AgenticLoop
+cd /path/to/ai-agentic-loop-harness
 npm link
 cd /path/to/ai-agentic-loop-runner
-npm link @agentic-loop/harness
+npm link @ai-agentic-loop/harness
 
 # Mount a local clone of the Code Engine samples repo and run.
 export OLLAMA_HOST="http://host.containers.internal:11434"
@@ -122,7 +119,6 @@ podman build -f Containerfile --build-arg AGENT_RUNTIME=ollama-droid -t ai-agent
 mkdir -p ./workspace
 podman run --rm \
   -v "$PWD/workspace:/workspace:Z" \
-  -v "$PWD/.droids:/workspace/.droids:Z" \
   -v "/path/to/code-engine-samples:/workspace/inputs/code-engine-samples:Z" \
   -e HARNESS_AGENT_RUNTIME=ollama-droid \
   -e OLLAMA_HOST="$OLLAMA_HOST" \
@@ -190,8 +186,8 @@ export CE_IMAGE="icr.io/your-namespace/sample-fvt:latest"
 npm install
 
 # Link the local harness until it is published on npm
-# (run `npm link` first in the @agentic-loop/harness package directory)
-npm link @agentic-loop/harness
+# (run `npm link` first in the @ai-agentic-loop/harness package directory)
+npm link @ai-agentic-loop/harness
 
 # Type check
 npm run typecheck
@@ -213,18 +209,19 @@ Never commit real credentials, tokens, or API keys to this repository.
 
 | Variable | Source | Purpose |
 |----------|--------|---------|
-| `OLLAMA_HOST` | `.droids/ollama.env` or shell env | Ollama server URL |
-| `OLLAMA_MODELS` | `.droids/ollama.env` or shell env | Comma-separated list of Ollama model tags |
-| `OLLAMA_MODEL` | `.droids/ollama.env` or shell env | (deprecated) Single Ollama model tag; used as a fallback |
-| `OLLAMA_API_KEY` | `.droids/ollama.env` or shell env | API key for the Ollama server, if authentication is required |
+| `OLLAMA_HOST` | `../ai-agentic-loop-harness/agent-config-samples/ollama.env.example` or shell env | Ollama server URL |
+| `OLLAMA_MODELS` | `../ai-agentic-loop-harness/agent-config-samples/ollama.env.example` or shell env | Comma-separated list of Ollama model tags |
+| `OLLAMA_MODEL` | `../ai-agentic-loop-harness/agent-config-samples/ollama.env.example` or shell env | (deprecated) Single Ollama model tag; used as a fallback |
+| `OLLAMA_API_KEY` | `../ai-agentic-loop-harness/agent-config-samples/ollama.env.example` or shell env | API key for the Ollama server, if authentication is required |
 | `GITHUB_TOKEN` | GitHub personal access token | Push branch and open PR |
 | `GITHUB_REPO` | Repository slug (`owner/repo`) | Target repository for the PR (optional; also read from plan or git remote) |
 | `GITHUB_BASE_BRANCH` | Branch name | Base branch for the PR (default: `master`; also read from plan) |
 | `IBMCLOUD_API_KEY` | IBM Cloud API key | Phase 2 Code Engine provisioning |
 
 Provide these values by exporting them in your shell, sourcing `.droids/ollama.env`,
-or passing them with `podman run -e`. The committed `.droids/ollama.env.example`
-file contains placeholder values only.
+or passing them with `podman run -e`. The committed
+`../ai-agentic-loop-harness/agent-config-samples/ollama.env.example` file
+contains placeholder values only.
 
 ## Configuration
 

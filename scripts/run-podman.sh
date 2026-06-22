@@ -28,6 +28,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+HARNESS_REPO="$(cd "${SCRIPT_DIR}/../../ai-agentic-loop-harness" && pwd)"
 
 # ---- Load optional .env from repo root unless disabled ----
 if [ "${AGENTIC_NO_DOTENV:-false}" != "true" ] && [ -f "${REPO_ROOT}/.env" ]; then
@@ -76,7 +77,7 @@ OLLAMA_MODELS="${OLLAMA_MODELS:-${OLLAMA_MODEL:-}}"
 mkdir -p "${WORKSPACE_DIR}"
 mkdir -p "${WORKSPACE_DIR}/.droids"
 if [ ! -f "${WORKSPACE_DIR}/.droids/ollama-droid.md" ]; then
-  cp "${REPO_ROOT}/.droids/ollama-droid.md" "${WORKSPACE_DIR}/.droids/ollama-droid.md"
+  cp "${HARNESS_REPO}/agent-config-samples/ollama-droid.md" "${WORKSPACE_DIR}/.droids/ollama-droid.md"
 fi
 
 # ---- Validate prompt file ----

@@ -18,7 +18,7 @@ const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 const CONTAINERFILE = path.join(REPO_ROOT, 'Containerfile');
 const HARNESS_REPO_ROOT = process.env.AGENTIC_HARNESS_REPO_ROOT
   ? path.resolve(process.env.AGENTIC_HARNESS_REPO_ROOT)
-  : path.resolve(REPO_ROOT, '..', 'AgenticLoop');
+  : path.resolve(REPO_ROOT, '..', 'ai-agentic-loop-harness');
 const IMAGE_TAG = `runner-harness-cli-test-${Date.now()}`;
 
 describe('VAL-EXAMPLE-007: runner repo Containerfile uses harness CLI', () => {

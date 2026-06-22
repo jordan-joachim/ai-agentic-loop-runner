@@ -30,9 +30,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+HARNESS_REPO="$(cd "${SCRIPT_DIR}/../../ai-agentic-loop-harness" && pwd)"
 
 # ---- Resolve the linked harness package path for the build context ----
-HARNESS_PACKAGE_PATH="${REPO_ROOT}/node_modules/@agentic-loop/harness"
+HARNESS_PACKAGE_PATH="${REPO_ROOT}/node_modules/@ai-agentic-loop/harness"
 BUILD_CONTEXT_ARGS=()
 if [ -L "${HARNESS_PACKAGE_PATH}" ]; then
   HARNESS_REAL_PATH="$(readlink -f "${HARNESS_PACKAGE_PATH}")"
@@ -88,7 +89,7 @@ mkdir -p "${WORKSPACE_DIR}/.droids"
 
 # Copy Droid config into the workspace if not already mounted
 if [ ! -f "${WORKSPACE_DIR}/.droids/ollama-droid.md" ]; then
-  cp "${REPO_ROOT}/.droids/ollama-droid.md" "${WORKSPACE_DIR}/.droids/ollama-droid.md"
+  cp "${HARNESS_REPO}/agent-config-samples/ollama-droid.md" "${WORKSPACE_DIR}/.droids/ollama-droid.md"
 fi
 
 # Generate a minimal rules.yaml if missing

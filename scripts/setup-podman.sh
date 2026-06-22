@@ -14,6 +14,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+HARNESS_REPO="$(cd "${SCRIPT_DIR}/../../ai-agentic-loop-harness" && pwd)"
 
 # ---- Load optional .env from repo root unless disabled ----
 if [ "${AGENTIC_NO_DOTENV:-false}" != "true" ] && [ -f "${REPO_ROOT}/.env" ]; then
@@ -38,7 +39,7 @@ error() {
 }
 
 # ---- Resolve the linked harness package path for the build context ----
-HARNESS_PACKAGE_PATH="${REPO_ROOT}/node_modules/@agentic-loop/harness"
+HARNESS_PACKAGE_PATH="${REPO_ROOT}/node_modules/@ai-agentic-loop/harness"
 BUILD_CONTEXT_ARGS=()
 if [ -L "${HARNESS_PACKAGE_PATH}" ]; then
   HARNESS_REAL_PATH="$(readlink -f "${HARNESS_PACKAGE_PATH}")"
@@ -69,14 +70,14 @@ mkdir -p "${WORKSPACE_DIR}"
 # ---- Seed workspace Droid config ----
 mkdir -p "${WORKSPACE_DIR}/.droids"
 if [ ! -f "${WORKSPACE_DIR}/.droids/ollama-droid.md" ]; then
-  cp "${REPO_ROOT}/.droids/ollama-droid.md" "${WORKSPACE_DIR}/.droids/ollama-droid.md"
-  log "Copied .droids/ollama-droid.md to workspace"
+  cp "${HARNESS_REPO}/agent-config-samples/ollama-droid.md" "${WORKSPACE_DIR}/.droids/ollama-droid.md"
+  log "Copied agent-config-samples/ollama-droid.md to workspace"
 else
   log "workspace/.droids/ollama-droid.md already present"
 fi
 
 # ---- Build image idempotently based on checksum ----
-CHECKSUM_DIR="${REPO_ROOT}/.cache"
+CHECKSUM_DIR="${REPO_ROOT}/cache"
 mkdir -p "${CHECKSUM_DIR}"
 CHECKSUM_FILE="${CHECKSUM_DIR}/setup-podman.checksum"
 

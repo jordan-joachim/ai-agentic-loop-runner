@@ -5,17 +5,18 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
-const DROID_CONFIG_PATH = path.join(REPO_ROOT, '.droids', 'ollama-droid.md');
-const ENV_EXAMPLE_PATH = path.join(REPO_ROOT, '.droids', 'ollama.env.example');
+const HARNESS_REPO = path.resolve(REPO_ROOT, '..', 'ai-agentic-loop-harness');
+const DROID_CONFIG_PATH = path.join(HARNESS_REPO, 'agent-config-samples', 'ollama-droid.md');
+const ENV_EXAMPLE_PATH = path.join(HARNESS_REPO, 'agent-config-samples', 'ollama.env.example');
 const GITIGNORE_PATH = path.join(REPO_ROOT, '.gitignore');
 
 describe('Droid / Ollama configuration', () => {
-  it('has the Droid config file', async () => {
+  it('has the Droid config file in the harness repo', async () => {
     const stats = await fs.stat(DROID_CONFIG_PATH);
     expect(stats.isFile()).toBe(true);
   });
 
-  it('has the Ollama env example file', async () => {
+  it('has the Ollama env example file in the harness repo', async () => {
     const stats = await fs.stat(ENV_EXAMPLE_PATH);
     expect(stats.isFile()).toBe(true);
   });
@@ -41,10 +42,10 @@ describe('Droid / Ollama configuration', () => {
     expect(content).not.toMatch(/OLLAMA_MODEL\s*=/);
   });
 
-  it('gitignore blocks the real env file and credential extensions', async () => {
+  it('gitignore blocks the .droids/ folder and credential extensions', async () => {
     const gitignore = await fs.readFile(GITIGNORE_PATH, 'utf-8');
 
-    expect(gitignore).toContain('.droids/ollama.env');
+    expect(gitignore).toContain('.droids/');
     expect(gitignore).toContain('*.key');
     expect(gitignore).toContain('*.token');
   });

@@ -13,7 +13,7 @@ const SETUP_CODEENGINE = path.join(SCRIPT_DIR, 'setup-codeengine.sh');
 const HARNESS_PACKAGE_PATH = path.join(
   REPO_ROOT,
   'node_modules',
-  '@agentic-loop',
+  '@ai-agentic-loop',
   'harness',
 );
 
@@ -56,7 +56,7 @@ describe('harness rebuild detection', () => {
     for (const { name, path: scriptPath } of scripts) {
       it(`${name} contains symlink detection logic`, () => {
         const content = fsSync.readFileSync(scriptPath, 'utf-8');
-        expect(content).toContain('node_modules/@agentic-loop/harness');
+        expect(content).toContain('node_modules/@ai-agentic-loop/harness');
         expect(content).toContain('readlink -f');
         expect(content).toContain('npm run build');
         expect(content).toContain('Detected linked harness package');
@@ -127,7 +127,7 @@ describe('harness rebuild detection', () => {
         // Create a minimal package.json so npm doesn't complain.
         fsSync.writeFileSync(
           path.join(HARNESS_PACKAGE_PATH, 'package.json'),
-          JSON.stringify({ name: '@agentic-loop/harness', version: '0.1.0' }),
+          JSON.stringify({ name: '@ai-agentic-loop/harness', version: '0.1.0' }),
           'utf-8',
         );
       }

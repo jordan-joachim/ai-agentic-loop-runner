@@ -2,6 +2,7 @@ node_modules/
 dist/
 workspace/
 .cache/
+cache/
 .DS_Store
 *.log
 .env
@@ -12,6 +13,7 @@ workspace/
 .idea/
 .vscode/
 tests/output/
-.droids/ollama.env
+.droids/
+.factory/
 *.key
 *.token
