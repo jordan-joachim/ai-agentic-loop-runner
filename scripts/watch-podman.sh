@@ -29,6 +29,12 @@ error() {
   echo "[watch-podman] ERROR: $*" >&2
 }
 
+# ---- Validate podman is available ----
+if ! command -v podman > /dev/null 2>&1; then
+  error "podman is required but not found on PATH"
+  exit 1
+fi
+
 # ---- Determine container name ----
 CONTAINER_NAME="${HARNESS_CONTAINER_NAME:-${1:-}}"
 
@@ -42,12 +48,6 @@ if [ -z "${CONTAINER_NAME}" ]; then
     exit 1
   fi
   log "Discovered container: ${CONTAINER_NAME}"
-fi
-
-# ---- Validate podman is available ----
-if ! command -v podman > /dev/null 2>&1; then
-  error "podman is required but not found on PATH"
-  exit 1
 fi
 
 # ---- Validate container exists and is running ----

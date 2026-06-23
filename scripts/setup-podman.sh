@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # setup-podman.sh — idempotent Podman setup for the AI agentic loop runner.
 #
-# Builds the harness container image using the harness repo's Containerfile
-# and prepares a workspace directory for bind-mounting.
+# Builds the harness container image directly from the harness repo's
+# Containerfile and prepares a workspace directory for bind-mounting.
 #
 # Usage:
 #   ./scripts/setup-podman.sh
@@ -34,16 +34,10 @@ if ! command -v podman > /dev/null 2>&1; then
   exit 1
 fi
 
-# ---- Validate harness repo exists ----
+# ---- Validate harness repo and Containerfile ----
 if [ ! -d "${HARNESS_ROOT}" ]; then
   log "ERROR: harness repository not found at ${HARNESS_ROOT}"
   log "Expected harness repo at ../ai-agentic-loop-harness relative to the runner repo"
-  exit 1
-fi
-
-HARNESS_BUILD_SCRIPT="${HARNESS_ROOT}/dev/build-container.sh"
-if [ ! -f "${HARNESS_BUILD_SCRIPT}" ]; then
-  log "ERROR: harness build script not found at ${HARNESS_BUILD_SCRIPT}"
   exit 1
 fi
 
@@ -53,16 +47,43 @@ if [ ! -f "${HARNESS_CONTAINERFILE}" ]; then
   exit 1
 fi
 
-# ---- Build the harness container image ----
-log "Building harness container image with AGENT_RUNTIME=${AGENT_RUNTIME}"
-log "Harness repo: ${HARNESS_ROOT}"
+# ---- Validate runtime argument ----
+case "${AGENT_RUNTIME}" in
+  mock|droid|ollama-droid|kilo|codex)
+    ;;
+  *)
+    log "ERROR: unsupported AGENT_RUNTIME: ${AGENT_RUNTIME}"
+    log "Supported values: mock, droid, ollama-droid, kilo, codex"
+    exit 1
+    ;;
+esac
 
-# Delegate to the harness build script, which handles idempotency
-# (skips rebuild when image exists unless NO_CACHE=true).
-AGENT_RUNTIME="${AGENT_RUNTIME}" \
-  HARNESS_IMAGE_TAG="${HARNESS_IMAGE_TAG}" \
-  NO_CACHE="${NO_CACHE}" \
-  bash "${HARNESS_BUILD_SCRIPT}"
+# ---- Idempotency: reuse existing image unless NO_CACHE=true ----
+if [ "${NO_CACHE}" != "true" ]; then
+  existing_id="$(podman image inspect "${HARNESS_IMAGE_TAG}" --format '{{.Id}}' 2> /dev/null || true)"
+  if [ -n "${existing_id}" ]; then
+    log "Image ${HARNESS_IMAGE_TAG} already exists (${existing_id}); skipping build"
+    log "Set NO_CACHE=true to force a rebuild"
+    exit 0
+  fi
+fi
+
+# ---- Build the image ----
+log "Building image ${HARNESS_IMAGE_TAG} with AGENT_RUNTIME=${AGENT_RUNTIME}"
+
+NO_CACHE_FLAG=()
+if [ "${NO_CACHE}" = "true" ]; then
+  NO_CACHE_FLAG=(--no-cache)
+fi
+
+podman build \
+  "${NO_CACHE_FLAG[@]}" \
+  -t "${HARNESS_IMAGE_TAG}" \
+  --build-arg "AGENT_RUNTIME=${AGENT_RUNTIME}" \
+  -f "${HARNESS_CONTAINERFILE}" \
+  "${HARNESS_ROOT}"
+
+log "Image ${HARNESS_IMAGE_TAG} built successfully"
 
 # ---- Create workspace directory ----
 WORKSPACE_DIR="${RUNNER_ROOT}/workspace"

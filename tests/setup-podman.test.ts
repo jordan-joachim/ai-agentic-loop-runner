@@ -18,8 +18,9 @@ import { fileURLToPath } from 'node:url';
  * Integration tests for scripts/setup-podman.sh
  *
  * These tests verify the script structure, path resolution, validation,
- * idempotency, and command emission without requiring a real container build.
- * Podman is mocked via a fake podman script placed on PATH.
+ * idempotency, and direct podman build command emission without requiring
+ * a real container build. Podman is mocked via a fake podman script placed
+ * on PATH.
  */
 
 const __filename = fileURLToPath(import.meta.url);
@@ -55,7 +56,7 @@ function createMockPodman(
     imageExists?: boolean;
     failBuild?: boolean;
   } = {},
-): string {
+): { binDir: string; logFile: string } {
   const mockBinDir = join(binDir, 'mock-bin');
   mkdirSync(mockBinDir, { recursive: true });
 
@@ -67,7 +68,7 @@ function createMockPodman(
 
   const mockScript = `#!/usr/bin/env bash
 # Mock podman for testing setup-podman.sh
-echo "$@" >> "${logFile}"
+printf '%s\n' "$*" >> "${logFile}"
 
 case "$1" in
   image)
@@ -99,46 +100,17 @@ esac
   const mockPath = join(mockBinDir, 'podman');
   writeFileSync(mockPath, mockScript);
   chmodSync(mockPath, 0o755);
-  return mockBinDir;
+  return { binDir: mockBinDir, logFile };
 }
 
 /**
- * Creates a minimal harness repo structure with dev/build-container.sh
- * and Containerfile so the script can resolve and validate paths.
+ * Creates a minimal harness repo structure with a Containerfile so the
+ * script can resolve and validate paths.
  */
 function createHarnessRepo(baseDir: string): string {
   const harnessDir = join(baseDir, 'ai-agentic-loop-harness');
-  mkdirSync(join(harnessDir, 'dev'), { recursive: true });
+  mkdirSync(harnessDir, { recursive: true });
 
-  // Create a minimal build-container.sh that the setup script delegates to
-  const buildScript = `#!/usr/bin/env bash
-# Minimal build-container.sh for testing
-set -euo pipefail
-echo "[build-container] AGENT_RUNTIME=\${AGENT_RUNTIME:-mock}"
-echo "[build-container] HARNESS_IMAGE_TAG=\${HARNESS_IMAGE_TAG:-harness:latest}"
-echo "[build-container] NO_CACHE=\${NO_CACHE:-false}"
-
-if ! command -v podman > /dev/null 2>&1; then
-  echo "ERROR: podman is required"
-  exit 1
-fi
-
-# Simulate idempotency check
-if [ "\${NO_CACHE}" != "true" ]; then
-  existing_id="$(podman image inspect "\${HARNESS_IMAGE_TAG}" --format '{{.Id}}' 2> /dev/null || true)"
-  if [ -n "\${existing_id}" ]; then
-    echo "Image \${HARNESS_IMAGE_TAG} already exists; skipping build"
-    exit 0
-  fi
-fi
-
-podman build -t "\${HARNESS_IMAGE_TAG}" --build-arg "AGENT_RUNTIME=\${AGENT_RUNTIME}" -f Containerfile .
-echo "Image built successfully"
-`;
-  writeFileSync(join(harnessDir, 'dev', 'build-container.sh'), buildScript);
-  chmodSync(join(harnessDir, 'dev', 'build-container.sh'), 0o755);
-
-  // Create a minimal Containerfile
   writeFileSync(
     join(harnessDir, 'Containerfile'),
     'FROM node:22-alpine\n',
@@ -176,14 +148,8 @@ describe('scripts/setup-podman.sh', () => {
   describe('path resolution', () => {
     it('resolves harness repo path relative to runner repo', () => {
       const content = readFileSync(SCRIPT_PATH, 'utf-8');
-      // Should resolve ../ai-agentic-loop-harness relative to runner root
       expect(content).toContain('ai-agentic-loop-harness');
       expect(content).toContain('HARNESS_ROOT');
-    });
-
-    it('resolves harness build script path', () => {
-      const content = readFileSync(SCRIPT_PATH, 'utf-8');
-      expect(content).toContain('dev/build-container.sh');
     });
 
     it('resolves harness Containerfile path', () => {
@@ -197,16 +163,13 @@ describe('scripts/setup-podman.sh', () => {
       const testDir = createTempDir();
       createHarnessRepo(testDir);
 
-      // Create a minimal bin directory with only bash and needed utils (no podman)
       const minimalBin = join(testDir, 'minimal-bin');
       mkdirSync(minimalBin, { recursive: true });
-      // Symlink bash, dirname, and mkdir into the minimal bin so the script can run
       for (const cmd of ['bash', 'dirname', 'mkdir']) {
         const cmdPath = execFileSync('which', [cmd], { encoding: 'utf-8' }).trim();
         symlinkSync(cmdPath, join(minimalBin, cmd));
       }
 
-      // Create runner dir with scripts/
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
       mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
       writeFileSync(
@@ -220,12 +183,10 @@ describe('scripts/setup-podman.sh', () => {
           encoding: 'utf-8',
           env: {
             ...process.env,
-            // Use a PATH that only contains bash, no podman
             PATH: minimalBin,
           },
           cwd: runnerDir,
         });
-        // Should not reach here
         expect.unreachable('Script should have failed without podman');
       } catch (err: unknown) {
         const error = err as { stderr?: string; stdout?: string; status?: number };
@@ -239,9 +200,8 @@ describe('scripts/setup-podman.sh', () => {
   describe('harness repo validation', () => {
     it('fails when harness repo directory does not exist', () => {
       const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir);
+      const { binDir: mockBinDir } = createMockPodman(testDir);
 
-      // Create runner dir WITHOUT harness repo
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
       mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
       writeFileSync(
@@ -268,54 +228,12 @@ describe('scripts/setup-podman.sh', () => {
       }
     });
 
-    it('fails when harness build script is missing', () => {
-      const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir);
-
-      // Create harness dir WITHOUT dev/build-container.sh
-      const harnessDir = join(testDir, 'ai-agentic-loop-harness');
-      mkdirSync(harnessDir, { recursive: true });
-      writeFileSync(join(harnessDir, 'Containerfile'), 'FROM node:22-alpine\n');
-
-      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
-      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
-      writeFileSync(
-        join(runnerDir, 'scripts', 'setup-podman.sh'),
-        readFileSync(SCRIPT_PATH, 'utf-8'),
-      );
-      chmodSync(join(runnerDir, 'scripts', 'setup-podman.sh'), 0o755);
-
-      try {
-        execFileSync('bash', [join(runnerDir, 'scripts', 'setup-podman.sh')], {
-          encoding: 'utf-8',
-          env: {
-            ...process.env,
-            PATH: `${mockBinDir}:${process.env.PATH}`,
-          },
-          cwd: runnerDir,
-        });
-        expect.unreachable('Script should have failed without build script');
-      } catch (err: unknown) {
-        const error = err as { stderr?: string; stdout?: string; status?: number };
-        const output = (error.stderr || '') + (error.stdout || '');
-        expect(output).toContain('build script not found');
-        expect(error.status).not.toBe(0);
-      }
-    });
-
     it('fails when harness Containerfile is missing', () => {
       const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir);
+      const { binDir: mockBinDir } = createMockPodman(testDir);
 
-      // Create harness dir WITHOUT Containerfile
       const harnessDir = join(testDir, 'ai-agentic-loop-harness');
-      mkdirSync(join(harnessDir, 'dev'), { recursive: true });
-      const buildScript = `#!/usr/bin/env bash
-set -euo pipefail
-echo "build script"
-`;
-      writeFileSync(join(harnessDir, 'dev', 'build-container.sh'), buildScript);
-      chmodSync(join(harnessDir, 'dev', 'build-container.sh'), 0o755);
+      mkdirSync(harnessDir, { recursive: true });
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
       mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
@@ -347,7 +265,7 @@ echo "build script"
   describe('workspace directory creation', () => {
     it('creates workspace/ directory when it does not exist', () => {
       const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir, { imageExists: true });
+      const { binDir: mockBinDir } = createMockPodman(testDir, { imageExists: false });
       createHarnessRepo(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
@@ -380,7 +298,7 @@ echo "build script"
 
     it('is idempotent when workspace/ already exists', () => {
       const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir, { imageExists: true });
+      const { binDir: mockBinDir } = createMockPodman(testDir, { imageExists: false });
       createHarnessRepo(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
@@ -391,7 +309,6 @@ echo "build script"
       );
       chmodSync(join(runnerDir, 'scripts', 'setup-podman.sh'), 0o755);
 
-      // Pre-create workspace
       const workspaceDir = join(runnerDir, 'workspace');
       mkdirSync(workspaceDir, { recursive: true });
       writeFileSync(join(workspaceDir, 'existing-file.txt'), 'hello');
@@ -418,7 +335,7 @@ echo "build script"
   describe('idempotency', () => {
     it('skips rebuild when image already exists', () => {
       const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir, { imageExists: true });
+      const { binDir: mockBinDir } = createMockPodman(testDir, { imageExists: true });
       createHarnessRepo(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
@@ -448,7 +365,7 @@ echo "build script"
 
     it('rebuilds when NO_CACHE=true even if image exists', () => {
       const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir, { imageExists: true });
+      const { binDir: mockBinDir } = createMockPodman(testDir, { imageExists: true });
       createHarnessRepo(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
@@ -479,7 +396,7 @@ echo "build script"
 
     it('builds when image does not exist', () => {
       const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir, { imageExists: false });
+      const { binDir: mockBinDir } = createMockPodman(testDir, { imageExists: false });
       createHarnessRepo(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
@@ -508,10 +425,147 @@ echo "build script"
     });
   });
 
+  describe('direct podman build', () => {
+    it('does not delegate to harness/dev/build-container.sh', () => {
+      const testDir = createTempDir();
+      const { binDir: mockBinDir } = createMockPodman(testDir, { imageExists: false });
+      createHarnessRepo(testDir);
+
+      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
+      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
+      writeFileSync(
+        join(runnerDir, 'scripts', 'setup-podman.sh'),
+        readFileSync(SCRIPT_PATH, 'utf-8'),
+      );
+      chmodSync(join(runnerDir, 'scripts', 'setup-podman.sh'), 0o755);
+
+      const result = execFileSync(
+        'bash',
+        [join(runnerDir, 'scripts', 'setup-podman.sh')],
+        {
+          encoding: 'utf-8',
+          env: {
+            ...process.env,
+            PATH: `${mockBinDir}:${process.env.PATH}`,
+          },
+          cwd: runnerDir,
+        },
+      );
+
+      expect(result).toContain('built successfully');
+      expect(result).not.toContain('[build-container]');
+    });
+
+    it('passes AGENT_RUNTIME as build arg', () => {
+      const testDir = createTempDir();
+      const { binDir: mockBinDir, logFile } = createMockPodman(testDir, { imageExists: false });
+      createHarnessRepo(testDir);
+
+      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
+      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
+      writeFileSync(
+        join(runnerDir, 'scripts', 'setup-podman.sh'),
+        readFileSync(SCRIPT_PATH, 'utf-8'),
+      );
+      chmodSync(join(runnerDir, 'scripts', 'setup-podman.sh'), 0o755);
+
+      const result = execFileSync(
+        'bash',
+        [join(runnerDir, 'scripts', 'setup-podman.sh')],
+        {
+          encoding: 'utf-8',
+          env: {
+            ...process.env,
+            PATH: `${mockBinDir}:${process.env.PATH}`,
+            AGENT_RUNTIME: 'kilo',
+          },
+          cwd: runnerDir,
+        },
+      );
+
+      expect(result).toContain('AGENT_RUNTIME=kilo');
+
+      const invocations = readFileSync(logFile, 'utf-8');
+      expect(invocations).toContain('build');
+      expect(invocations).toContain('--build-arg');
+      expect(invocations).toContain('AGENT_RUNTIME=kilo');
+    });
+
+    it('uses the harness repo as build context', () => {
+      const testDir = createTempDir();
+      const { binDir: mockBinDir, logFile } = createMockPodman(testDir, { imageExists: false });
+      const harnessDir = createHarnessRepo(testDir);
+
+      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
+      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
+      writeFileSync(
+        join(runnerDir, 'scripts', 'setup-podman.sh'),
+        readFileSync(SCRIPT_PATH, 'utf-8'),
+      );
+      chmodSync(join(runnerDir, 'scripts', 'setup-podman.sh'), 0o755);
+
+      execFileSync(
+        'bash',
+        [join(runnerDir, 'scripts', 'setup-podman.sh')],
+        {
+          encoding: 'utf-8',
+          env: {
+            ...process.env,
+            PATH: `${mockBinDir}:${process.env.PATH}`,
+          },
+          cwd: runnerDir,
+        },
+      );
+
+      expect(existsSync(join(harnessDir, 'Containerfile'))).toBe(true);
+      const invocations = readFileSync(logFile, 'utf-8');
+      expect(invocations).toContain('ai-agentic-loop-harness/Containerfile');
+      expect(invocations).toContain('ai-agentic-loop-harness');
+    });
+
+    it('propagates build failures', () => {
+      const testDir = createTempDir();
+      const { binDir: mockBinDir } = createMockPodman(testDir, {
+        imageExists: false,
+        failBuild: true,
+      });
+      createHarnessRepo(testDir);
+
+      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
+      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
+      writeFileSync(
+        join(runnerDir, 'scripts', 'setup-podman.sh'),
+        readFileSync(SCRIPT_PATH, 'utf-8'),
+      );
+      chmodSync(join(runnerDir, 'scripts', 'setup-podman.sh'), 0o755);
+
+      try {
+        execFileSync(
+          'bash',
+          [join(runnerDir, 'scripts', 'setup-podman.sh')],
+          {
+            encoding: 'utf-8',
+            env: {
+              ...process.env,
+              PATH: `${mockBinDir}:${process.env.PATH}`,
+            },
+            cwd: runnerDir,
+          },
+        );
+        expect.unreachable('Script should have failed when build fails');
+      } catch (err: unknown) {
+        const error = err as { stderr?: string; stdout?: string; status?: number };
+        const output = (error.stderr || '') + (error.stdout || '');
+        expect(output).toContain('Build failed');
+        expect(error.status).not.toBe(0);
+      }
+    });
+  });
+
   describe('AGENT_RUNTIME environment variable', () => {
     it('defaults to mock when AGENT_RUNTIME is not set', () => {
       const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir, { imageExists: true });
+      const { binDir: mockBinDir, logFile } = createMockPodman(testDir, { imageExists: false });
       createHarnessRepo(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
@@ -536,11 +590,14 @@ echo "build script"
       );
 
       expect(result).toContain('AGENT_RUNTIME=mock');
+      const invocations = readFileSync(logFile, 'utf-8');
+      expect(invocations).toContain('--build-arg');
+      expect(invocations).toContain('AGENT_RUNTIME=mock');
     });
 
-    it('passes AGENT_RUNTIME to the build script', () => {
+    it('rejects unsupported AGENT_RUNTIME values', () => {
       const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir, { imageExists: true });
+      const { binDir: mockBinDir } = createMockPodman(testDir, { imageExists: true });
       createHarnessRepo(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
@@ -551,28 +608,34 @@ echo "build script"
       );
       chmodSync(join(runnerDir, 'scripts', 'setup-podman.sh'), 0o755);
 
-      const result = execFileSync(
-        'bash',
-        [join(runnerDir, 'scripts', 'setup-podman.sh')],
-        {
-          encoding: 'utf-8',
-          env: {
-            ...process.env,
-            PATH: `${mockBinDir}:${process.env.PATH}`,
-            AGENT_RUNTIME: 'droid',
+      try {
+        execFileSync(
+          'bash',
+          [join(runnerDir, 'scripts', 'setup-podman.sh')],
+          {
+            encoding: 'utf-8',
+            env: {
+              ...process.env,
+              PATH: `${mockBinDir}:${process.env.PATH}`,
+              AGENT_RUNTIME: 'unknown-runtime',
+            },
+            cwd: runnerDir,
           },
-          cwd: runnerDir,
-        },
-      );
-
-      expect(result).toContain('AGENT_RUNTIME=droid');
+        );
+        expect.unreachable('Script should have failed for unsupported runtime');
+      } catch (err: unknown) {
+        const error = err as { stderr?: string; stdout?: string; status?: number };
+        const output = (error.stderr || '') + (error.stdout || '');
+        expect(output).toContain('unsupported AGENT_RUNTIME');
+        expect(error.status).not.toBe(0);
+      }
     });
   });
 
   describe('command emission', () => {
     it('emits setup-podman log prefix', () => {
       const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir, { imageExists: true });
+      const { binDir: mockBinDir } = createMockPodman(testDir, { imageExists: true });
       createHarnessRepo(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
@@ -601,7 +664,7 @@ echo "build script"
 
     it('emits setup complete message', () => {
       const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir, { imageExists: true });
+      const { binDir: mockBinDir } = createMockPodman(testDir, { imageExists: false });
       createHarnessRepo(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');

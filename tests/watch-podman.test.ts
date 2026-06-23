@@ -56,7 +56,7 @@ function createMockPodman(
     containerRunning?: boolean;
     containerNames?: string[];
   } = {},
-): string {
+): { binDir: string; logFile: string } {
   const mockBinDir = join(binDir, 'mock-bin');
   mkdirSync(mockBinDir, { recursive: true });
 
@@ -71,14 +71,12 @@ function createMockPodman(
 
   const mockScript = `#!/usr/bin/env bash
 # Mock podman for testing watch-podman.sh
-echo "$@" >> "${logFile}"
+printf '%s\n' "$*" >> "${logFile}"
 
 case "$1" in
   container)
     if [ "$2" = "inspect" ]; then
       if [ "${containerExists}" = "true" ]; then
-        # The watch script uses --format '{{.State.Status}}' to extract status.
-        # Return just the status string so the comparison works.
         if [ "${containerRunning}" = "true" ]; then
           echo "running"
         else
@@ -92,7 +90,6 @@ case "$1" in
     fi
     ;;
   ps)
-    # Simulate podman ps output for container discovery
     containerNames=(${bashArrayLiteral})
     for name in "\${containerNames[@]}"; do
       echo "\${name}"
@@ -100,14 +97,11 @@ case "$1" in
     exit 0
     ;;
   logs)
-    # Simulate podman logs -f: just echo what we're doing and exit
     echo "[mock] podman logs -f $2"
-    # Sleep briefly so the test can capture output, then exit
     sleep 0.1
     exit 0
     ;;
   exec)
-    # Simulate podman exec: echo the command being run
     shift
     echo "[mock] podman exec $*"
     sleep 0.1
@@ -123,7 +117,7 @@ esac
   const mockPath = join(mockBinDir, 'podman');
   writeFileSync(mockPath, mockScript);
   chmodSync(mockPath, 0o755);
-  return mockBinDir;
+  return { binDir: mockBinDir, logFile };
 }
 
 describe('scripts/watch-podman.sh', () => {
@@ -134,7 +128,6 @@ describe('scripts/watch-podman.sh', () => {
   describe('script structure', () => {
     it('exists and is executable', () => {
       expect(existsSync(SCRIPT_PATH)).toBe(true);
-      // bash -n (syntax check) produces no output on success
       const result = execFileSync('bash', ['-n', SCRIPT_PATH], {
         encoding: 'utf-8',
       });
@@ -156,7 +149,6 @@ describe('scripts/watch-podman.sh', () => {
     it('fails with clear error when podman is not on PATH', () => {
       const testDir = createTempDir();
 
-      // Create a minimal bin directory with only bash and needed utils (no podman)
       const minimalBin = join(testDir, 'minimal-bin');
       mkdirSync(minimalBin, { recursive: true });
       for (const cmd of ['bash', 'dirname', 'mkdir']) {
@@ -164,7 +156,6 @@ describe('scripts/watch-podman.sh', () => {
         symlinkSync(cmdPath, join(minimalBin, cmd));
       }
 
-      // Create runner dir with scripts/
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
       mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
       writeFileSync(
@@ -190,12 +181,44 @@ describe('scripts/watch-podman.sh', () => {
         expect(error.status).not.toBe(0);
       }
     });
+
+    it('validates podman before attempting container discovery', () => {
+      const testDir = createTempDir();
+      const { binDir: mockBinDir } = createMockPodman(testDir, {
+        containerNames: [],
+      });
+
+      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
+      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
+      writeFileSync(
+        join(runnerDir, 'scripts', 'watch-podman.sh'),
+        readFileSync(SCRIPT_PATH, 'utf-8'),
+      );
+      chmodSync(join(runnerDir, 'scripts', 'watch-podman.sh'), 0o755);
+
+      try {
+        execFileSync('bash', [join(runnerDir, 'scripts', 'watch-podman.sh')], {
+          encoding: 'utf-8',
+          env: {
+            ...process.env,
+            PATH: `${mockBinDir}:${process.env.PATH}`,
+          },
+          cwd: runnerDir,
+        });
+        expect.unreachable('Script should have failed with no containers');
+      } catch (err: unknown) {
+        const error = err as { stderr?: string; stdout?: string; status?: number };
+        const output = (error.stderr || '') + (error.stdout || '');
+        expect(output).toContain('No container name provided');
+        expect(error.status).not.toBe(0);
+      }
+    });
   });
 
   describe('container validation', () => {
     it('fails when container does not exist', () => {
       const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir, { containerExists: false });
+      const { binDir: mockBinDir } = createMockPodman(testDir, { containerExists: false });
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
       mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
@@ -229,7 +252,7 @@ describe('scripts/watch-podman.sh', () => {
 
     it('fails when container is not running', () => {
       const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir, {
+      const { binDir: mockBinDir } = createMockPodman(testDir, {
         containerExists: true,
         containerRunning: false,
       });
@@ -268,7 +291,7 @@ describe('scripts/watch-podman.sh', () => {
   describe('container name resolution', () => {
     it('accepts container name as positional argument', () => {
       const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir);
+      const { binDir: mockBinDir } = createMockPodman(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
       mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
@@ -296,7 +319,7 @@ describe('scripts/watch-podman.sh', () => {
 
     it('accepts container name via HARNESS_CONTAINER_NAME env var', () => {
       const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir);
+      const { binDir: mockBinDir } = createMockPodman(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
       mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
@@ -325,7 +348,7 @@ describe('scripts/watch-podman.sh', () => {
 
     it('HARNESS_CONTAINER_NAME env var takes precedence over positional argument', () => {
       const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir);
+      const { binDir: mockBinDir } = createMockPodman(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
       mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
@@ -349,14 +372,13 @@ describe('scripts/watch-podman.sh', () => {
         },
       );
 
-      // Should use env var, not positional arg
       expect(result).toContain('env-container');
       expect(result).not.toContain('positional-container');
     });
 
     it('discovers container when no name is provided', () => {
       const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir, {
+      const { binDir: mockBinDir } = createMockPodman(testDir, {
         containerNames: ['harness-11111-22222', 'harness-33333-44444'],
       });
 
@@ -381,15 +403,14 @@ describe('scripts/watch-podman.sh', () => {
         },
       );
 
-      // Should discover the most recent container (last in sorted list)
       expect(result).toContain('Discovered container');
       expect(result).toContain('harness-33333-44444');
     });
 
     it('fails when no container name and no running harness containers', () => {
       const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir, {
-        containerNames: [], // no running containers
+      const { binDir: mockBinDir } = createMockPodman(testDir, {
+        containerNames: [],
       });
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
@@ -422,7 +443,7 @@ describe('scripts/watch-podman.sh', () => {
   describe('command emission', () => {
     it('emits podman logs -f for container stdout/stderr', () => {
       const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir);
+      const { binDir: mockBinDir } = createMockPodman(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
       mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
@@ -445,13 +466,12 @@ describe('scripts/watch-podman.sh', () => {
         },
       );
 
-      // Verify podman logs -f is invoked
       expect(result).toContain('podman logs -f test-container');
     });
 
     it('emits podman exec tail for harness.log and agent logs', () => {
       const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir);
+      const { binDir: mockBinDir } = createMockPodman(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
       mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
@@ -474,7 +494,6 @@ describe('scripts/watch-podman.sh', () => {
         },
       );
 
-      // Verify podman exec is invoked with tail -f for harness.log and agent logs
       expect(result).toContain('podman exec');
       expect(result).toContain('tail -f');
       expect(result).toContain('harness.log');
@@ -484,7 +503,7 @@ describe('scripts/watch-podman.sh', () => {
 
     it('emits watch-podman log prefix', () => {
       const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir);
+      const { binDir: mockBinDir } = createMockPodman(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
       mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
@@ -512,7 +531,7 @@ describe('scripts/watch-podman.sh', () => {
 
     it('emits watching logs message', () => {
       const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir);
+      const { binDir: mockBinDir } = createMockPodman(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
       mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
@@ -557,11 +576,8 @@ describe('scripts/watch-podman.sh', () => {
 
     it('uses correct log filenames matching harness output (doer.log, not doer-*.log)', () => {
       const content = readFileSync(SCRIPT_PATH, 'utf-8');
-      // The harness writes iter-{n}/doer.log and iter-{n}/reviewer.log
-      // (not doer-{n}.log / reviewer-{n}.log)
       expect(content).toContain('iter-*/doer.log');
       expect(content).toContain('iter-*/reviewer.log');
-      // Should NOT use the old naming convention
       expect(content).not.toContain('doer-*.log');
       expect(content).not.toContain('reviewer-*.log');
     });

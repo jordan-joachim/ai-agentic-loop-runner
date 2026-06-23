@@ -18,8 +18,8 @@ import { fileURLToPath } from 'node:url';
  * Integration tests for scripts/run-podman.sh
  *
  * These tests verify the script structure, env var validation, runtime-specific
- * credential checks, and delegation to the harness repo's dev/run-container.sh.
- * Podman is mocked via a fake podman script placed on PATH.
+ * credential checks, and direct podman run command emission without requiring
+ * a real container. Podman is mocked via a fake podman script placed on PATH.
  */
 
 const __filename = fileURLToPath(import.meta.url);
@@ -55,7 +55,8 @@ function createMockPodman(binDir: string): string {
   const logFile = join(binDir, 'podman-invocations.log');
 
   const mockScript = `#!/usr/bin/env bash
-echo "$@" >> "${logFile}"
+printf '%s\n' "$*" >> "${logFile}"
+
 exit 0
 `;
 
@@ -63,51 +64,6 @@ exit 0
   writeFileSync(mockPath, mockScript);
   chmodSync(mockPath, 0o755);
   return mockBinDir;
-}
-
-/**
- * Creates a minimal harness repo structure with dev/run-container.sh
- * so the script can resolve and validate paths.
- */
-function createHarnessRepo(baseDir: string): string {
-  const harnessDir = join(baseDir, 'ai-agentic-loop-harness');
-  mkdirSync(join(harnessDir, 'dev'), { recursive: true });
-
-  // Create a minimal run-container.sh that the run-podman script delegates to.
-  // This script records the env vars it receives so we can verify they are
-  // passed through correctly.
-  const runScript = `#!/usr/bin/env bash
-# Minimal run-container.sh for testing
-set -euo pipefail
-
-echo "[run-container] HARNESS_WORKSPACE=\${HARNESS_WORKSPACE:-<unset>}"
-echo "[run-container] HARNESS_AGENT_RUNTIME=\${HARNESS_AGENT_RUNTIME:-<unset>}"
-echo "[run-container] HARNESS_IMAGE_TAG=\${HARNESS_IMAGE_TAG:-<unset>}"
-echo "[run-container] HARNESS_MAX_ITERATIONS=\${HARNESS_MAX_ITERATIONS:-<unset>}"
-echo "[run-container] HARNESS_TIME_LIMIT_MINUTES=\${HARNESS_TIME_LIMIT_MINUTES:-<unset>}"
-echo "[run-container] OLLAMA_HOST=\${OLLAMA_HOST:-<unset>}"
-echo "[run-container] OLLAMA_MODELS=\${OLLAMA_MODELS:-<unset>}"
-echo "[run-container] KILO_API_KEY=\${KILO_API_KEY:-<unset>}"
-echo "[run-container] CODEX_API_KEY=\${CODEX_API_KEY:-<unset>}"
-echo "[run-container] OPENROUTER_API_KEY=\${OPENROUTER_API_KEY:-<unset>}"
-
-if ! command -v podman > /dev/null 2>&1; then
-  echo "ERROR: podman is required"
-  exit 1
-fi
-
-# Simulate running the container
-podman run --rm --name "harness-test" \\
-  -v "\${HARNESS_WORKSPACE}:/workspace:Z" \\
-  -e "HARNESS_AGENT_RUNTIME=\${HARNESS_AGENT_RUNTIME}" \\
-  "\${HARNESS_IMAGE_TAG:-harness:latest}"
-
-echo "Container run complete"
-`;
-  writeFileSync(join(harnessDir, 'dev', 'run-container.sh'), runScript);
-  chmodSync(join(harnessDir, 'dev', 'run-container.sh'), 0o755);
-
-  return harnessDir;
 }
 
 /**
@@ -149,97 +105,10 @@ describe('scripts/run-podman.sh', () => {
     });
   });
 
-  describe('path resolution', () => {
-    it('resolves harness repo path relative to runner repo', () => {
-      const content = readFileSync(SCRIPT_PATH, 'utf-8');
-      expect(content).toContain('ai-agentic-loop-harness');
-      expect(content).toContain('HARNESS_ROOT');
-    });
-
-    it('resolves harness run script path', () => {
-      const content = readFileSync(SCRIPT_PATH, 'utf-8');
-      expect(content).toContain('dev/run-container.sh');
-    });
-  });
-
-  describe('harness repo validation', () => {
-    it('fails when harness repo directory does not exist', () => {
-      const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir);
-      const workspaceDir = createWorkspace(testDir);
-
-      // Create runner dir WITHOUT harness repo
-      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
-      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
-      writeFileSync(
-        join(runnerDir, 'scripts', 'run-podman.sh'),
-        readFileSync(SCRIPT_PATH, 'utf-8'),
-      );
-      chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
-
-      try {
-        execFileSync('bash', [join(runnerDir, 'scripts', 'run-podman.sh')], {
-          encoding: 'utf-8',
-          env: {
-            ...process.env,
-            PATH: `${mockBinDir}:${process.env.PATH}`,
-            HARNESS_WORKSPACE: workspaceDir,
-            HARNESS_AGENT_RUNTIME: 'mock',
-          },
-          cwd: runnerDir,
-        });
-        expect.unreachable('Script should have failed without harness repo');
-      } catch (err: unknown) {
-        const error = err as { stderr?: string; stdout?: string; status?: number };
-        const output = (error.stderr || '') + (error.stdout || '');
-        expect(output).toContain('harness repository not found');
-        expect(error.status).not.toBe(0);
-      }
-    });
-
-    it('fails when harness run script is missing', () => {
-      const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir);
-      const workspaceDir = createWorkspace(testDir);
-
-      // Create harness dir WITHOUT dev/run-container.sh
-      const harnessDir = join(testDir, 'ai-agentic-loop-harness');
-      mkdirSync(harnessDir, { recursive: true });
-
-      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
-      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
-      writeFileSync(
-        join(runnerDir, 'scripts', 'run-podman.sh'),
-        readFileSync(SCRIPT_PATH, 'utf-8'),
-      );
-      chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
-
-      try {
-        execFileSync('bash', [join(runnerDir, 'scripts', 'run-podman.sh')], {
-          encoding: 'utf-8',
-          env: {
-            ...process.env,
-            PATH: `${mockBinDir}:${process.env.PATH}`,
-            HARNESS_WORKSPACE: workspaceDir,
-            HARNESS_AGENT_RUNTIME: 'mock',
-          },
-          cwd: runnerDir,
-        });
-        expect.unreachable('Script should have failed without run script');
-      } catch (err: unknown) {
-        const error = err as { stderr?: string; stdout?: string; status?: number };
-        const output = (error.stderr || '') + (error.stdout || '');
-        expect(output).toContain('run script not found');
-        expect(error.status).not.toBe(0);
-      }
-    });
-  });
-
   describe('HARNESS_WORKSPACE validation', () => {
     it('fails fast when HARNESS_WORKSPACE is missing', () => {
       const testDir = createTempDir();
       const mockBinDir = createMockPodman(testDir);
-      createHarnessRepo(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
       mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
@@ -272,7 +141,6 @@ describe('scripts/run-podman.sh', () => {
     it('fails fast when HARNESS_WORKSPACE is empty string', () => {
       const testDir = createTempDir();
       const mockBinDir = createMockPodman(testDir);
-      createHarnessRepo(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
       mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
@@ -305,7 +173,6 @@ describe('scripts/run-podman.sh', () => {
     it('fails when workspace directory does not exist', () => {
       const testDir = createTempDir();
       const mockBinDir = createMockPodman(testDir);
-      createHarnessRepo(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
       mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
@@ -340,7 +207,6 @@ describe('scripts/run-podman.sh', () => {
     it('fails fast when HARNESS_AGENT_RUNTIME is missing', () => {
       const testDir = createTempDir();
       const mockBinDir = createMockPodman(testDir);
-      createHarnessRepo(testDir);
       const workspaceDir = createWorkspace(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
@@ -374,7 +240,6 @@ describe('scripts/run-podman.sh', () => {
     it('fails fast when HARNESS_AGENT_RUNTIME is unsupported', () => {
       const testDir = createTempDir();
       const mockBinDir = createMockPodman(testDir);
-      createHarnessRepo(testDir);
       const workspaceDir = createWorkspace(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
@@ -412,8 +277,8 @@ describe('scripts/run-podman.sh', () => {
       for (const runtime of supportedRuntimes) {
         const testDir = createTempDir();
         const mockBinDir = createMockPodman(testDir);
-        createHarnessRepo(testDir);
         const workspaceDir = createWorkspace(testDir);
+        const logFile = join(testDir, 'podman-invocations.log');
 
         const runnerDir = join(testDir, 'ai-agentic-loop-runner');
         mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
@@ -423,7 +288,6 @@ describe('scripts/run-podman.sh', () => {
         );
         chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
 
-        // Build env vars based on runtime requirements
         const env: Record<string, string> = {
           ...process.env,
           PATH: `${mockBinDir}:${process.env.PATH}`,
@@ -431,7 +295,6 @@ describe('scripts/run-podman.sh', () => {
           HARNESS_AGENT_RUNTIME: runtime,
         };
 
-        // Add required credentials for runtimes that need them
         if (runtime === 'ollama-droid') {
           env.OLLAMA_HOST = 'http://localhost:11434';
           env.OLLAMA_MODELS = 'llama3';
@@ -444,8 +307,7 @@ describe('scripts/run-podman.sh', () => {
           env.OPENROUTER_API_KEY = 'test-openrouter-key';
         }
 
-        // Should not throw for supported runtimes with required credentials
-        const result = execFileSync(
+        execFileSync(
           'bash',
           [join(runnerDir, 'scripts', 'run-podman.sh')],
           {
@@ -455,7 +317,8 @@ describe('scripts/run-podman.sh', () => {
           },
         );
 
-        expect(result).toContain(`HARNESS_AGENT_RUNTIME=${runtime}`);
+        const invocations = readFileSync(logFile, 'utf-8');
+        expect(invocations).toContain(`-e HARNESS_AGENT_RUNTIME=${runtime}`);
       }
     });
   });
@@ -464,7 +327,6 @@ describe('scripts/run-podman.sh', () => {
     it('fails for ollama-droid when OLLAMA_HOST is missing', () => {
       const testDir = createTempDir();
       const mockBinDir = createMockPodman(testDir);
-      createHarnessRepo(testDir);
       const workspaceDir = createWorkspace(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
@@ -500,7 +362,6 @@ describe('scripts/run-podman.sh', () => {
     it('fails for ollama-droid when OLLAMA_MODELS is missing', () => {
       const testDir = createTempDir();
       const mockBinDir = createMockPodman(testDir);
-      createHarnessRepo(testDir);
       const workspaceDir = createWorkspace(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
@@ -536,7 +397,6 @@ describe('scripts/run-podman.sh', () => {
     it('fails for kilo when KILO_API_KEY is missing', () => {
       const testDir = createTempDir();
       const mockBinDir = createMockPodman(testDir);
-      createHarnessRepo(testDir);
       const workspaceDir = createWorkspace(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
@@ -572,7 +432,6 @@ describe('scripts/run-podman.sh', () => {
     it('fails for codex when CODEX_API_KEY is missing', () => {
       const testDir = createTempDir();
       const mockBinDir = createMockPodman(testDir);
-      createHarnessRepo(testDir);
       const workspaceDir = createWorkspace(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
@@ -608,7 +467,6 @@ describe('scripts/run-podman.sh', () => {
     it('fails for codex when OPENROUTER_API_KEY is missing', () => {
       const testDir = createTempDir();
       const mockBinDir = createMockPodman(testDir);
-      createHarnessRepo(testDir);
       const workspaceDir = createWorkspace(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
@@ -647,7 +505,6 @@ describe('scripts/run-podman.sh', () => {
     it('runs successfully with mock runtime and no extra credentials', () => {
       const testDir = createTempDir();
       const mockBinDir = createMockPodman(testDir);
-      createHarnessRepo(testDir);
       const workspaceDir = createWorkspace(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
@@ -674,16 +531,83 @@ describe('scripts/run-podman.sh', () => {
         },
       );
 
-      expect(result).toContain('HARNESS_AGENT_RUNTIME=mock');
-      expect(result).toContain('Container run complete');
+      expect(result).toContain('Runtime: mock');
+      expect(result).toContain('Running harness:latest');
     });
   });
 
-  describe('command emission and delegation', () => {
-    it('delegates to harness dev/run-container.sh', () => {
+  describe('direct podman run command', () => {
+    it('does not delegate to harness dev/run-container.sh', () => {
       const testDir = createTempDir();
       const mockBinDir = createMockPodman(testDir);
-      createHarnessRepo(testDir);
+      const workspaceDir = createWorkspace(testDir);
+      const logFile = join(testDir, 'podman-invocations.log');
+
+      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
+      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
+      writeFileSync(
+        join(runnerDir, 'scripts', 'run-podman.sh'),
+        readFileSync(SCRIPT_PATH, 'utf-8'),
+      );
+      chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
+
+      const result = execFileSync(
+        'bash',
+        [join(runnerDir, 'scripts', 'run-podman.sh')],
+        {
+          encoding: 'utf-8',
+          env: {
+            ...process.env,
+            PATH: `${mockBinDir}:${process.env.PATH}`,
+            HARNESS_WORKSPACE: workspaceDir,
+            HARNESS_AGENT_RUNTIME: 'mock',
+          },
+          cwd: runnerDir,
+        },
+      );
+
+      expect(result).not.toContain('[run-container]');
+      const invocations = readFileSync(logFile, 'utf-8');
+      expect(invocations).toContain('run');
+      expect(invocations).toContain('--rm');
+    });
+
+    it('bind-mounts the workspace as /workspace:Z', () => {
+      const testDir = createTempDir();
+      const mockBinDir = createMockPodman(testDir);
+      const workspaceDir = createWorkspace(testDir);
+      const logFile = join(testDir, 'podman-invocations.log');
+
+      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
+      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
+      writeFileSync(
+        join(runnerDir, 'scripts', 'run-podman.sh'),
+        readFileSync(SCRIPT_PATH, 'utf-8'),
+      );
+      chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
+
+      execFileSync(
+        'bash',
+        [join(runnerDir, 'scripts', 'run-podman.sh')],
+        {
+          encoding: 'utf-8',
+          env: {
+            ...process.env,
+            PATH: `${mockBinDir}:${process.env.PATH}`,
+            HARNESS_WORKSPACE: workspaceDir,
+            HARNESS_AGENT_RUNTIME: 'mock',
+          },
+          cwd: runnerDir,
+        },
+      );
+
+      const invocations = readFileSync(logFile, 'utf-8');
+      expect(invocations).toContain(`${workspaceDir}:/workspace:Z`);
+    });
+
+    it('uses a deterministic container name harness-$(date +%s)-$$', () => {
+      const testDir = createTempDir();
+      const mockBinDir = createMockPodman(testDir);
       const workspaceDir = createWorkspace(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
@@ -709,16 +633,14 @@ describe('scripts/run-podman.sh', () => {
         },
       );
 
-      // Verify the harness run-container.sh was invoked (it emits [run-container] prefix)
-      expect(result).toContain('[run-container]');
-      expect(result).toContain('Container run complete');
+      expect(result).toMatch(/Container name: harness-\d+-\d+/);
     });
 
-    it('passes HARNESS_WORKSPACE through to run-container.sh', () => {
+    it('passes optional env vars as -e flags to podman run', () => {
       const testDir = createTempDir();
       const mockBinDir = createMockPodman(testDir);
-      createHarnessRepo(testDir);
       const workspaceDir = createWorkspace(testDir);
+      const logFile = join(testDir, 'podman-invocations.log');
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
       mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
@@ -728,7 +650,7 @@ describe('scripts/run-podman.sh', () => {
       );
       chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
 
-      const result = execFileSync(
+      execFileSync(
         'bash',
         [join(runnerDir, 'scripts', 'run-podman.sh')],
         {
@@ -737,88 +659,68 @@ describe('scripts/run-podman.sh', () => {
             ...process.env,
             PATH: `${mockBinDir}:${process.env.PATH}`,
             HARNESS_WORKSPACE: workspaceDir,
-            HARNESS_AGENT_RUNTIME: 'mock',
-          },
-          cwd: runnerDir,
-        },
-      );
-
-      expect(result).toContain(`HARNESS_WORKSPACE=${workspaceDir}`);
-    });
-
-    it('passes HARNESS_AGENT_RUNTIME through to run-container.sh', () => {
-      const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir);
-      createHarnessRepo(testDir);
-      const workspaceDir = createWorkspace(testDir);
-
-      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
-      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
-      writeFileSync(
-        join(runnerDir, 'scripts', 'run-podman.sh'),
-        readFileSync(SCRIPT_PATH, 'utf-8'),
-      );
-      chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
-
-      const result = execFileSync(
-        'bash',
-        [join(runnerDir, 'scripts', 'run-podman.sh')],
-        {
-          encoding: 'utf-8',
-          env: {
-            ...process.env,
-            PATH: `${mockBinDir}:${process.env.PATH}`,
-            HARNESS_WORKSPACE: workspaceDir,
-            HARNESS_AGENT_RUNTIME: 'droid',
-          },
-          cwd: runnerDir,
-        },
-      );
-
-      expect(result).toContain('HARNESS_AGENT_RUNTIME=droid');
-    });
-
-    it('passes optional env vars through to run-container.sh', () => {
-      const testDir = createTempDir();
-      const mockBinDir = createMockPodman(testDir);
-      createHarnessRepo(testDir);
-      const workspaceDir = createWorkspace(testDir);
-
-      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
-      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
-      writeFileSync(
-        join(runnerDir, 'scripts', 'run-podman.sh'),
-        readFileSync(SCRIPT_PATH, 'utf-8'),
-      );
-      chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
-
-      const result = execFileSync(
-        'bash',
-        [join(runnerDir, 'scripts', 'run-podman.sh')],
-        {
-          encoding: 'utf-8',
-          env: {
-            ...process.env,
-            PATH: `${mockBinDir}:${process.env.PATH}`,
-            HARNESS_WORKSPACE: workspaceDir,
-            HARNESS_AGENT_RUNTIME: 'mock',
+            HARNESS_AGENT_RUNTIME: 'codex',
             HARNESS_IMAGE_TAG: 'harness:custom',
             HARNESS_MAX_ITERATIONS: '5',
             HARNESS_TIME_LIMIT_MINUTES: '30',
+            CODEX_API_KEY: 'test-codex-key',
+            OPENROUTER_API_KEY: 'test-openrouter-key',
           },
           cwd: runnerDir,
         },
       );
 
-      expect(result).toContain('HARNESS_IMAGE_TAG=harness:custom');
-      expect(result).toContain('HARNESS_MAX_ITERATIONS=5');
-      expect(result).toContain('HARNESS_TIME_LIMIT_MINUTES=30');
+      const invocations = readFileSync(logFile, 'utf-8');
+      expect(invocations).toContain('harness:custom');
+      expect(invocations).toContain('-e HARNESS_MAX_ITERATIONS=5');
+      expect(invocations).toContain('-e HARNESS_TIME_LIMIT_MINUTES=30');
+      expect(invocations).toContain('-e CODEX_API_KEY=test-codex-key');
+      expect(invocations).toContain('-e OPENROUTER_API_KEY=test-openrouter-key');
     });
 
-    it('emits run-podman log prefix', () => {
+    it('passes all runtime credentials through for ollama-droid', () => {
       const testDir = createTempDir();
       const mockBinDir = createMockPodman(testDir);
-      createHarnessRepo(testDir);
+      const workspaceDir = createWorkspace(testDir);
+      const logFile = join(testDir, 'podman-invocations.log');
+
+      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
+      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
+      writeFileSync(
+        join(runnerDir, 'scripts', 'run-podman.sh'),
+        readFileSync(SCRIPT_PATH, 'utf-8'),
+      );
+      chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
+
+      execFileSync(
+        'bash',
+        [join(runnerDir, 'scripts', 'run-podman.sh')],
+        {
+          encoding: 'utf-8',
+          env: {
+            ...process.env,
+            PATH: `${mockBinDir}:${process.env.PATH}`,
+            HARNESS_WORKSPACE: workspaceDir,
+            HARNESS_AGENT_RUNTIME: 'ollama-droid',
+            OLLAMA_HOST: 'http://localhost:11434',
+            OLLAMA_MODELS: 'llama3,mistral',
+            OLLAMA_API_KEY: 'test-ollama-key',
+          },
+          cwd: runnerDir,
+        },
+      );
+
+      const invocations = readFileSync(logFile, 'utf-8');
+      expect(invocations).toContain('-e OLLAMA_HOST=http://localhost:11434');
+      expect(invocations).toContain('-e OLLAMA_MODELS=llama3,mistral');
+      expect(invocations).toContain('-e OLLAMA_API_KEY=test-ollama-key');
+    });
+  });
+
+  describe('HARNESS_TAIL_LOGS support', () => {
+    it('starts podman logs -f in the background when HARNESS_TAIL_LOGS=true', () => {
+      const testDir = createTempDir();
+      const mockBinDir = createMockPodman(testDir);
       const workspaceDir = createWorkspace(testDir);
 
       const runnerDir = join(testDir, 'ai-agentic-loop-runner');
@@ -839,25 +741,25 @@ describe('scripts/run-podman.sh', () => {
             PATH: `${mockBinDir}:${process.env.PATH}`,
             HARNESS_WORKSPACE: workspaceDir,
             HARNESS_AGENT_RUNTIME: 'mock',
+            HARNESS_TAIL_LOGS: 'true',
           },
           cwd: runnerDir,
         },
       );
 
-      expect(result).toContain('[run-podman]');
+      expect(result).toContain('Launching local log tail');
+      expect(result).toContain('podman logs -f');
     });
   });
 
   describe('podman validation', () => {
     it('fails with clear error when podman is not on PATH', () => {
       const testDir = createTempDir();
-      createHarnessRepo(testDir);
       const workspaceDir = createWorkspace(testDir);
 
-      // Create a minimal bin directory with only bash and needed utils (no podman)
       const minimalBin = join(testDir, 'minimal-bin');
       mkdirSync(minimalBin, { recursive: true });
-      for (const cmd of ['bash', 'dirname', 'mkdir']) {
+      for (const cmd of ['bash', 'dirname']) {
         const cmdPath = execFileSync('which', [cmd], { encoding: 'utf-8' }).trim();
         symlinkSync(cmdPath, join(minimalBin, cmd));
       }
@@ -885,7 +787,6 @@ describe('scripts/run-podman.sh', () => {
       } catch (err: unknown) {
         const error = err as { stderr?: string; stdout?: string; status?: number };
         const output = (error.stderr || '') + (error.stdout || '');
-        // The error comes from the harness run-container.sh which checks for podman
         expect(output).toContain('podman is required');
         expect(error.status).not.toBe(0);
       }
