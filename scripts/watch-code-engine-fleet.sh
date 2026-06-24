@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+#
+# scripts/watch-code-engine-fleet.sh
+#
+# Thin wrapper: delegates to the harness watch-fleet.sh script.
+# Follows the task logs of a running Code Engine fleet and prints COS download
+# instructions when the fleet completes.
+#
+# Required environment variables:
+#   IBMCLOUD_API_KEY  - IBM Cloud API key
+#
+# Optional environment variables: see harness scripts/watch-fleet.sh
+# Key defaults: CE_RESOURCE_GROUP=agentic-loop, CE_PROJECT_NAME=agentic-loop-fleet
+#
+# Usage:
+#   ./scripts/watch-code-engine-fleet.sh [fleet-name]
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RUNNER_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+HARNESS_ROOT="${RUNNER_ROOT}/../ai-agentic-loop-harness"
+
+# ---- Load optional .env from runner root ----
+if [ "${AGENTIC_NO_DOTENV:-false}" != "true" ] && [ -f "${RUNNER_ROOT}/.env" ]; then
+  set -a
+  # shellcheck source=/dev/null
+  source "${RUNNER_ROOT}/.env"
+  set +a
+fi
+
+HARNESS_SCRIPT="${HARNESS_ROOT}/scripts/watch-fleet.sh"
+
+if [ ! -f "${HARNESS_SCRIPT}" ]; then
+  echo "[watch-code-engine-fleet] ERROR: harness script not found: ${HARNESS_SCRIPT}" >&2
+  echo "[watch-code-engine-fleet] Expected harness repo at ../ai-agentic-loop-harness" >&2
+  exit 1
+fi
+
+export CE_RESOURCE_GROUP="${CE_RESOURCE_GROUP:-agentic-loop}"
+export AGENTIC_NO_DOTENV=true
+
+exec "${HARNESS_SCRIPT}" "$@"
