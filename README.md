@@ -10,6 +10,9 @@ Podman, IBM Cloud Code Engine jobs, or IBM Cloud Code Engine fleets.
 The runner is a lightweight consumer of the generic harness package. It does not
 contain harness logic itself. Instead it provides:
 
+- **Prompt resolution** via `scripts/fetch-prompt.sh` — accepts a `PROMPT_SOURCE`
+  (bare name, `dir:`, `file:`, or `github:` URL) and generates `plan.yaml` +
+  `rules.yaml` into the workspace before the harness runs.
 - **Orchestration scripts** in `scripts/` that build the harness container image,
   run it against a workspace, and stream live logs.
 - **Direct execution** support via the harness CLI, using the same workspace
@@ -22,6 +25,89 @@ contain harness logic itself. Instead it provides:
   task with the COS workspace bucket mounted directly at `/workspace` via a
   persistent data store (no SDK round-trip; files written during the run
   appear in COS immediately).
+
+## Using a prompt from a repo
+
+Set `PROMPT_SOURCE` before calling any `run-*.sh` script. The runner will
+automatically resolve the prompt and generate `plan.yaml` + `rules.yaml` before
+starting the harness.
+
+### Bare name (sibling repo — local development)
+
+Resolves to `../ai-agentic-loop-prompts/<name>/` relative to the runner root.
+Requires `ai-agentic-loop-prompts` to be checked out as a sibling directory.
+
+```bash
+PROMPT_SOURCE=fvt-coverage \
+HARNESS_AGENT_RUNTIME=kilo \
+KILO_API_KEY=sk-... \
+./scripts/run-podman.sh
+```
+
+### GitHub URL
+
+Sparse-clones the specified subfolder from a GitHub repository.
+
+```bash
+PROMPT_SOURCE=github:jordan-joachim/ai-agentic-loop-prompts/fvt-coverage \
+HARNESS_AGENT_RUNTIME=kilo \
+KILO_API_KEY=sk-... \
+./scripts/run-podman.sh
+```
+
+### Local directory
+
+```bash
+PROMPT_SOURCE=dir:/path/to/ai-agentic-loop-prompts/fvt-coverage \
+HARNESS_AGENT_RUNTIME=kilo \
+KILO_API_KEY=sk-... \
+./scripts/run-podman.sh
+```
+
+### Single Markdown file
+
+```bash
+PROMPT_SOURCE=file:/path/to/my-plan.md \
+HARNESS_AGENT_RUNTIME=kilo \
+KILO_API_KEY=sk-... \
+./scripts/run-podman.sh
+```
+
+### Without PROMPT_SOURCE (pre-populated workspace)
+
+When `PROMPT_SOURCE` is not set the runner expects `plan.yaml` and `rules.yaml`
+to already exist in the workspace — the original behaviour is preserved.
+
+See [`plans/prompt-source-contract.md`](../ai-agentic-loop-mission-docs/plans/prompt-source-contract.md)
+in the mission docs for the full resolution spec.
+
+## Agent configuration
+
+Copy a sample `agents.json` from the harness repo into your workspace as
+`config/agents.json`, then fill in your credentials. The harness reads this
+file at startup to select the runtime and model for each role (setup, doer,
+reviewer, teardown).
+
+Sample configs are in `../ai-agentic-loop-harness/agent-config-samples/`:
+
+| File | Runtime | Default model |
+|------|---------|--------------|
+| `kilo.json` | `kilo` | `kilo-auto/free` |
+| `droid.json` | `droid` | `openrouter/free` |
+| `codex.json` | `codex` | `openrouter/free-router` |
+| `ollama-droid.json` | `ollama-droid` | — (set `OLLAMA_MODELS`) |
+| `bob-shell.json` | `bob-shell` | — (model managed by Bob service) |
+
+```bash
+mkdir -p workspace/config
+cp ../ai-agentic-loop-harness/agent-config-samples/kilo.json workspace/config/agents.json
+# Edit workspace/config/agents.json and fill in KILO_API_KEY value
+```
+
+Credentials can also be provided as environment variables; they take precedence
+over values in `agents.json`. See the harness
+[agent configuration docs](../ai-agentic-loop-harness/README.md#agent-configuration-workspaceconfigagentsjson)
+for full details.
 
 ## Relationship to the Harness
 

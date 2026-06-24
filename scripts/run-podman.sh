@@ -39,6 +39,18 @@ error() {
   echo "[run-podman] ERROR: $*" >&2
 }
 
+# ---- Fetch prompt from PROMPT_SOURCE (if set) ----
+# Resolves bare name / dir: / file: / github: to plan.yaml + rules.yaml in workspace.
+if [ -n "${PROMPT_SOURCE:-}" ]; then
+  HARNESS_WORKSPACE_DIR="${HARNESS_WORKSPACE_DIR:-workspace}"
+  WORKSPACE_DIR="${RUNNER_ROOT}/${HARNESS_WORKSPACE_DIR}"
+  mkdir -p "${WORKSPACE_DIR}"
+  log "PROMPT_SOURCE=${PROMPT_SOURCE} — fetching prompt ..."
+  PROMPT_SOURCE="${PROMPT_SOURCE}" \
+  PROMPT_GENERATE_PLAN="${PROMPT_GENERATE_PLAN:-}" \
+    bash "${SCRIPT_DIR}/fetch-prompt.sh" "${WORKSPACE_DIR}"
+fi
+
 HARNESS_IMAGE_TAG="${HARNESS_IMAGE_TAG:-harness:latest}"
 
 # ---- Validate Podman is available ----
