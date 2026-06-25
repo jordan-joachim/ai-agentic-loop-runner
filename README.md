@@ -132,6 +132,26 @@ All scripts load a `.env` file from the runner root if one is present, then
 set `AGENTIC_NO_DOTENV=true` before delegating to the harness scripts to
 prevent double-loading.
 
+### Direct (local CLI)
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/setup-direct.sh` | Verify the harness repo exists and print direct-run instructions |
+| `scripts/run-direct.sh` | Validate config, check the agent CLI, and run the harness CLI directly |
+| `scripts/watch-direct.sh` | Tail `harness.log` and per-iteration agent logs in the workspace |
+
+```bash
+./scripts/setup-direct.sh
+HARNESS_AGENT_RUNTIME=kilo KILO_API_KEY=... HARNESS_WORKSPACE=./workspace ./scripts/run-direct.sh
+./scripts/watch-direct.sh
+```
+
+`run-direct.sh` loads `.env` from the runner root if present, requires
+`HARNESS_WORKSPACE` and `HARNESS_AGENT_RUNTIME`, validates that the runtime is
+one of `mock`, `droid`, `kilo`, `codex`, or `bob-shell`, and verifies the agent
+CLI is installed on PATH for every non-mock runtime. If the CLI is missing, the
+script exits with an install hint before invoking the harness.
+
 ### Podman (local container)
 
 | Script | Purpose |
@@ -145,6 +165,9 @@ AGENT_RUNTIME=kilo ./scripts/setup-podman.sh
 HARNESS_AGENT_RUNTIME=kilo KILO_API_KEY=... ./scripts/run-podman.sh
 ./scripts/watch-podman.sh
 ```
+
+Podman runs build the selected agent runtime CLI into the container image, so
+`run-podman.sh` does not perform a host-side CLI presence check.
 
 ### Code Engine — Job mode
 

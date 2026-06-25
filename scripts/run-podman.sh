@@ -82,6 +82,11 @@ esac
 
 # ---- Validate runtime-specific credentials ----
 # mock runtime requires no extra credentials
+
+# Note: CLI presence is checked in run-direct.sh before invoking the harness
+# directly. For Podman runs the harness container image bakes in the CLI, so no
+# host-side presence check is required here.
+
 if [ "${HARNESS_AGENT_RUNTIME}" = "ollama-droid" ]; then
   if [ -z "${OLLAMA_HOST:-}" ]; then
     error "OLLAMA_HOST is required for HARNESS_AGENT_RUNTIME=ollama-droid"
