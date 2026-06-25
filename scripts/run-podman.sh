@@ -1,28 +1,31 @@
 #!/usr/bin/env bash
 # run-podman.sh — run the harness container with a bind-mounted workspace.
 #
-# Validates required environment variables (HARNESS_WORKSPACE, HARNESS_AGENT_RUNTIME,
-# and runtime-specific credentials), then runs the harness container image directly
-# with the workspace bind-mounted and env vars passed through.
+# Resolves PROMPT_SOURCE, validates required environment variables,
+# writes workspace/config/agents.json, then runs the harness container image
+# directly with the workspace bind-mounted and env vars passed through.
 #
 # Usage:
 #   ./scripts/run-podman.sh
 #
 # Environment variables:
 #   HARNESS_WORKSPACE          Path to the workspace directory (required)
-#   HARNESS_AGENT_RUNTIME      Runtime selection: mock | droid | ollama-droid | kilo | codex (required)
+#   HARNESS_AGENT_RUNTIME      Runtime selection: mock | droid | kilo | codex | bob-shell (required)
+#   HARNESS_AGENT_BACKEND      Optional backend override (native | openrouter | ollama)
+#   HARNESS_AGENT_MODEL        Optional model override
 #   HARNESS_IMAGE_TAG          Image tag to run (default: harness:latest)
 #   HARNESS_MAX_ITERATIONS     Optional iteration limit
 #   HARNESS_TIME_LIMIT_MINUTES Optional time limit
 #   HARNESS_TAIL_LOGS          When "true", launch a background podman logs -f
 #                              before the main run so logs appear locally in real time.
-#   OLLAMA_HOST                Required when HARNESS_AGENT_RUNTIME=ollama-droid
-#   OLLAMA_MODELS              Required when HARNESS_AGENT_RUNTIME=ollama-droid
+#   OLLAMA_HOST                Required when backend=ollama
+#   OLLAMA_MODELS              Required when backend=ollama
 #   OLLAMA_MODEL               Deprecated fallback when OLLAMA_MODELS is unset
-#   OLLAMA_API_KEY             Required when HARNESS_AGENT_RUNTIME=ollama-droid
-#   KILO_API_KEY               Required when HARNESS_AGENT_RUNTIME=kilo
+#   OLLAMA_API_KEY             Required when backend=ollama
+#   KILO_API_KEY               Required when HARNESS_AGENT_RUNTIME=kilo and backend=native
+#   OPENROUTER_API_KEY         Required when backend=openrouter
 #   CODEX_API_KEY              Required when HARNESS_AGENT_RUNTIME=codex
-#   OPENROUTER_API_KEY         Required when HARNESS_AGENT_RUNTIME=codex
+#   BOBSHELL_API_KEY           Required when HARNESS_AGENT_RUNTIME=bob-shell
 
 set -euo pipefail
 
@@ -59,70 +62,28 @@ if ! command -v podman > /dev/null 2>&1; then
   exit 1
 fi
 
-# ---- Validate required env vars ----
+# ---- Validate workspace path ----
 if [ -z "${HARNESS_WORKSPACE:-}" ]; then
   error "HARNESS_WORKSPACE is required"
   exit 1
 fi
 
-if [ -z "${HARNESS_AGENT_RUNTIME:-}" ]; then
-  error "HARNESS_AGENT_RUNTIME is required (mock | droid | ollama-droid | kilo | codex)"
-  exit 1
-fi
-
-case "${HARNESS_AGENT_RUNTIME}" in
-  mock|droid|ollama-droid|kilo|codex)
-    ;;
-  *)
-    error "Unsupported HARNESS_AGENT_RUNTIME: ${HARNESS_AGENT_RUNTIME}"
-    error "Supported values: mock, droid, ollama-droid, kilo, codex"
-    exit 1
-    ;;
-esac
-
-# ---- Validate runtime-specific credentials ----
-# mock runtime requires no extra credentials
-
-# Note: CLI presence is checked in run-direct.sh before invoking the harness
-# directly. For Podman runs the harness container image bakes in the CLI, so no
-# host-side presence check is required here.
-
-if [ "${HARNESS_AGENT_RUNTIME}" = "ollama-droid" ]; then
-  if [ -z "${OLLAMA_HOST:-}" ]; then
-    error "OLLAMA_HOST is required for HARNESS_AGENT_RUNTIME=ollama-droid"
-    exit 1
-  fi
-  if [ -z "${OLLAMA_MODELS:-}" ] && [ -z "${OLLAMA_MODEL:-}" ]; then
-    error "OLLAMA_MODELS (or deprecated OLLAMA_MODEL) is required for HARNESS_AGENT_RUNTIME=ollama-droid"
-    exit 1
-  fi
-fi
-
-if [ "${HARNESS_AGENT_RUNTIME}" = "kilo" ]; then
-  if [ -z "${KILO_API_KEY:-}" ]; then
-    error "KILO_API_KEY is required for HARNESS_AGENT_RUNTIME=kilo"
-    exit 1
-  fi
-fi
-
-if [ "${HARNESS_AGENT_RUNTIME}" = "codex" ]; then
-  if [ -z "${CODEX_API_KEY:-}" ]; then
-    error "CODEX_API_KEY is required for HARNESS_AGENT_RUNTIME=codex"
-    exit 1
-  fi
-  if [ -z "${OPENROUTER_API_KEY:-}" ]; then
-    error "OPENROUTER_API_KEY is required for HARNESS_AGENT_RUNTIME=codex"
-    exit 1
-  fi
-fi
-
-# ---- Resolve workspace path ----
-if [ -d "${HARNESS_WORKSPACE}" ]; then
-  WORKSPACE_ABS="$(cd "${HARNESS_WORKSPACE}" && pwd)"
-else
+if [ ! -d "${HARNESS_WORKSPACE}" ]; then
   error "Workspace directory does not exist: ${HARNESS_WORKSPACE}"
   exit 1
 fi
+WORKSPACE_ABS="$(cd "${HARNESS_WORKSPACE}" && pwd)"
+
+if [ -z "${HARNESS_AGENT_RUNTIME:-}" ]; then
+  error "HARNESS_AGENT_RUNTIME is required (mock | droid | kilo | codex | bob-shell)"
+  exit 1
+fi
+
+# ---- Validate agent config and write workspace/config/agents.json ----
+log "Validating agent config: runtime=${HARNESS_AGENT_RUNTIME} backend=${HARNESS_AGENT_BACKEND:-default}"
+node -e "require('${RUNNER_ROOT}/dist/agent-config').validateAgentConfig(process.env.HARNESS_AGENT_RUNTIME, process.env.HARNESS_AGENT_BACKEND, process.env)"
+node -e "require('${RUNNER_ROOT}/dist/agent-config').writeAgentsJson('${WORKSPACE_ABS}', require('${RUNNER_ROOT}/dist/agent-config').buildAgentConfig(process.env.HARNESS_AGENT_RUNTIME, process.env.HARNESS_AGENT_BACKEND, process.env.HARNESS_AGENT_MODEL, process.env))"
+log "Wrote workspace/config/agents.json"
 
 # ---- Build env var arguments for podman run ----
 ENV_ARGS=(
@@ -163,6 +124,10 @@ if [ -n "${OPENROUTER_API_KEY:-}" ]; then
   ENV_ARGS+=( -e "OPENROUTER_API_KEY=${OPENROUTER_API_KEY}" )
 fi
 
+if [ -n "${BOBSHELL_API_KEY:-}" ]; then
+  ENV_ARGS+=( -e "BOBSHELL_API_KEY=${BOBSHELL_API_KEY}" )
+fi
+
 # ---- Generate a deterministic container name ----
 CONTAINER_NAME="harness-$(date +%s)-$$"
 
@@ -193,6 +158,18 @@ set -e
 # ---- Stop the local log tail if we started one ----
 if [ -n "${TAIL_PID}" ] && kill -0 "${TAIL_PID}" 2>/dev/null; then
   kill "${TAIL_PID}" 2>/dev/null || true
+fi
+
+# ---- Gather results ----
+if [ -f "${WORKSPACE_ABS}/result.yaml" ]; then
+  log "Result file: ${WORKSPACE_ABS}/result.yaml"
+  STATUS_LINE="$(grep -E '^status:' "${WORKSPACE_ABS}/result.yaml" | head -1 || true)"
+  ITERATIONS_LINE="$(grep -E '^iterations:' "${WORKSPACE_ABS}/result.yaml" | head -1 || true)"
+  log "Result ${STATUS_LINE:-status: unknown}"
+  log "Result ${ITERATIONS_LINE:-iterations: unknown}"
+else
+  log "WARNING: result.yaml not found in local workspace after container exited"
+  log "If the workspace was not bind-mounted, retrieve results from the container workspace."
 fi
 
 exit ${EXIT_CODE}

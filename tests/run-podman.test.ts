@@ -25,6 +25,7 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const SCRIPT_PATH = resolve(__dirname, '..', 'scripts', 'run-podman.sh');
+const DIST_PATH = resolve(__dirname, '..', 'dist');
 
 // Track temp dirs for cleanup
 const tempDirs: string[] = [];
@@ -43,6 +44,26 @@ function cleanup() {
       // best-effort cleanup
     }
   }
+}
+
+/**
+ * Copy the runner script into a temporary runner layout and symlink dist/.
+ */
+function copyRunnerLayout(baseDir: string): { runnerDir: string } {
+  const runnerDir = join(baseDir, 'ai-agentic-loop-runner');
+  const scriptsDir = join(runnerDir, 'scripts');
+  mkdirSync(scriptsDir, { recursive: true });
+
+  writeFileSync(
+    join(scriptsDir, 'run-podman.sh'),
+    readFileSync(SCRIPT_PATH, 'utf-8'),
+  );
+  chmodSync(join(scriptsDir, 'run-podman.sh'), 0o755);
+
+  const distLink = join(runnerDir, 'dist');
+  symlinkSync(DIST_PATH, distLink);
+
+  return { runnerDir };
 }
 
 /**
@@ -110,13 +131,7 @@ describe('scripts/run-podman.sh', () => {
       const testDir = createTempDir();
       const mockBinDir = createMockPodman(testDir);
 
-      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
-      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
-      writeFileSync(
-        join(runnerDir, 'scripts', 'run-podman.sh'),
-        readFileSync(SCRIPT_PATH, 'utf-8'),
-      );
-      chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
+      const { runnerDir } = copyRunnerLayout(testDir);
 
       try {
         execFileSync('bash', [join(runnerDir, 'scripts', 'run-podman.sh')], {
@@ -142,13 +157,7 @@ describe('scripts/run-podman.sh', () => {
       const testDir = createTempDir();
       const mockBinDir = createMockPodman(testDir);
 
-      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
-      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
-      writeFileSync(
-        join(runnerDir, 'scripts', 'run-podman.sh'),
-        readFileSync(SCRIPT_PATH, 'utf-8'),
-      );
-      chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
+      const { runnerDir } = copyRunnerLayout(testDir);
 
       try {
         execFileSync('bash', [join(runnerDir, 'scripts', 'run-podman.sh')], {
@@ -174,13 +183,7 @@ describe('scripts/run-podman.sh', () => {
       const testDir = createTempDir();
       const mockBinDir = createMockPodman(testDir);
 
-      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
-      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
-      writeFileSync(
-        join(runnerDir, 'scripts', 'run-podman.sh'),
-        readFileSync(SCRIPT_PATH, 'utf-8'),
-      );
-      chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
+      const { runnerDir } = copyRunnerLayout(testDir);
 
       try {
         execFileSync('bash', [join(runnerDir, 'scripts', 'run-podman.sh')], {
@@ -209,13 +212,7 @@ describe('scripts/run-podman.sh', () => {
       const mockBinDir = createMockPodman(testDir);
       const workspaceDir = createWorkspace(testDir);
 
-      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
-      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
-      writeFileSync(
-        join(runnerDir, 'scripts', 'run-podman.sh'),
-        readFileSync(SCRIPT_PATH, 'utf-8'),
-      );
-      chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
+      const { runnerDir } = copyRunnerLayout(testDir);
 
       try {
         execFileSync('bash', [join(runnerDir, 'scripts', 'run-podman.sh')], {
@@ -242,13 +239,7 @@ describe('scripts/run-podman.sh', () => {
       const mockBinDir = createMockPodman(testDir);
       const workspaceDir = createWorkspace(testDir);
 
-      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
-      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
-      writeFileSync(
-        join(runnerDir, 'scripts', 'run-podman.sh'),
-        readFileSync(SCRIPT_PATH, 'utf-8'),
-      );
-      chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
+      const { runnerDir } = copyRunnerLayout(testDir);
 
       try {
         execFileSync('bash', [join(runnerDir, 'scripts', 'run-podman.sh')], {
@@ -265,14 +256,14 @@ describe('scripts/run-podman.sh', () => {
       } catch (err: unknown) {
         const error = err as { stderr?: string; stdout?: string; status?: number };
         const output = (error.stderr || '') + (error.stdout || '');
-        expect(output).toContain('Unsupported HARNESS_AGENT_RUNTIME');
+        expect(output).toContain('Unsupported runtime');
         expect(output).toContain('unsupported-runtime');
         expect(error.status).not.toBe(0);
       }
     });
 
     it('accepts all supported runtime values', () => {
-      const supportedRuntimes = ['mock', 'droid', 'ollama-droid', 'kilo', 'codex'];
+      const supportedRuntimes = ['mock', 'droid', 'kilo', 'codex'];
 
       for (const runtime of supportedRuntimes) {
         const testDir = createTempDir();
@@ -280,13 +271,7 @@ describe('scripts/run-podman.sh', () => {
         const workspaceDir = createWorkspace(testDir);
         const logFile = join(testDir, 'podman-invocations.log');
 
-        const runnerDir = join(testDir, 'ai-agentic-loop-runner');
-        mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
-        writeFileSync(
-          join(runnerDir, 'scripts', 'run-podman.sh'),
-          readFileSync(SCRIPT_PATH, 'utf-8'),
-        );
-        chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
+        const { runnerDir } = copyRunnerLayout(testDir);
 
         const env: Record<string, string> = {
           ...process.env,
@@ -295,10 +280,6 @@ describe('scripts/run-podman.sh', () => {
           HARNESS_AGENT_RUNTIME: runtime,
         };
 
-        if (runtime === 'ollama-droid') {
-          env.OLLAMA_HOST = 'http://localhost:11434';
-          env.OLLAMA_MODELS = 'llama3';
-        }
         if (runtime === 'kilo') {
           env.KILO_API_KEY = 'test-kilo-key';
         }
@@ -324,18 +305,12 @@ describe('scripts/run-podman.sh', () => {
   });
 
   describe('runtime-specific credential validation', () => {
-    it('fails for ollama-droid when OLLAMA_HOST is missing', () => {
+    it('fails for droid with ollama backend when OLLAMA_HOST is missing', () => {
       const testDir = createTempDir();
       const mockBinDir = createMockPodman(testDir);
       const workspaceDir = createWorkspace(testDir);
 
-      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
-      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
-      writeFileSync(
-        join(runnerDir, 'scripts', 'run-podman.sh'),
-        readFileSync(SCRIPT_PATH, 'utf-8'),
-      );
-      chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
+      const { runnerDir } = copyRunnerLayout(testDir);
 
       try {
         execFileSync('bash', [join(runnerDir, 'scripts', 'run-podman.sh')], {
@@ -344,7 +319,8 @@ describe('scripts/run-podman.sh', () => {
             ...process.env,
             PATH: `${mockBinDir}:${process.env.PATH}`,
             HARNESS_WORKSPACE: workspaceDir,
-            HARNESS_AGENT_RUNTIME: 'ollama-droid',
+            HARNESS_AGENT_RUNTIME: 'droid',
+            HARNESS_AGENT_BACKEND: 'ollama',
             OLLAMA_MODELS: 'llama3',
             // OLLAMA_HOST intentionally not set
           },
@@ -354,23 +330,17 @@ describe('scripts/run-podman.sh', () => {
       } catch (err: unknown) {
         const error = err as { stderr?: string; stdout?: string; status?: number };
         const output = (error.stderr || '') + (error.stdout || '');
-        expect(output).toContain('OLLAMA_HOST is required');
+        expect(output).toContain('OLLAMA_HOST');
         expect(error.status).not.toBe(0);
       }
     });
 
-    it('fails for ollama-droid when OLLAMA_MODELS is missing', () => {
+    it('fails for droid with ollama backend when OLLAMA_MODELS is missing', () => {
       const testDir = createTempDir();
       const mockBinDir = createMockPodman(testDir);
       const workspaceDir = createWorkspace(testDir);
 
-      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
-      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
-      writeFileSync(
-        join(runnerDir, 'scripts', 'run-podman.sh'),
-        readFileSync(SCRIPT_PATH, 'utf-8'),
-      );
-      chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
+      const { runnerDir } = copyRunnerLayout(testDir);
 
       try {
         execFileSync('bash', [join(runnerDir, 'scripts', 'run-podman.sh')], {
@@ -379,7 +349,8 @@ describe('scripts/run-podman.sh', () => {
             ...process.env,
             PATH: `${mockBinDir}:${process.env.PATH}`,
             HARNESS_WORKSPACE: workspaceDir,
-            HARNESS_AGENT_RUNTIME: 'ollama-droid',
+            HARNESS_AGENT_RUNTIME: 'droid',
+            HARNESS_AGENT_BACKEND: 'ollama',
             OLLAMA_HOST: 'http://localhost:11434',
             // OLLAMA_MODELS and OLLAMA_MODEL intentionally not set
           },
@@ -399,13 +370,7 @@ describe('scripts/run-podman.sh', () => {
       const mockBinDir = createMockPodman(testDir);
       const workspaceDir = createWorkspace(testDir);
 
-      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
-      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
-      writeFileSync(
-        join(runnerDir, 'scripts', 'run-podman.sh'),
-        readFileSync(SCRIPT_PATH, 'utf-8'),
-      );
-      chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
+      const { runnerDir } = copyRunnerLayout(testDir);
 
       try {
         execFileSync('bash', [join(runnerDir, 'scripts', 'run-podman.sh')], {
@@ -424,7 +389,7 @@ describe('scripts/run-podman.sh', () => {
       } catch (err: unknown) {
         const error = err as { stderr?: string; stdout?: string; status?: number };
         const output = (error.stderr || '') + (error.stdout || '');
-        expect(output).toContain('KILO_API_KEY is required');
+        expect(output).toContain('KILO_API_KEY');
         expect(error.status).not.toBe(0);
       }
     });
@@ -434,13 +399,7 @@ describe('scripts/run-podman.sh', () => {
       const mockBinDir = createMockPodman(testDir);
       const workspaceDir = createWorkspace(testDir);
 
-      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
-      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
-      writeFileSync(
-        join(runnerDir, 'scripts', 'run-podman.sh'),
-        readFileSync(SCRIPT_PATH, 'utf-8'),
-      );
-      chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
+      const { runnerDir } = copyRunnerLayout(testDir);
 
       try {
         execFileSync('bash', [join(runnerDir, 'scripts', 'run-podman.sh')], {
@@ -459,7 +418,7 @@ describe('scripts/run-podman.sh', () => {
       } catch (err: unknown) {
         const error = err as { stderr?: string; stdout?: string; status?: number };
         const output = (error.stderr || '') + (error.stdout || '');
-        expect(output).toContain('CODEX_API_KEY is required');
+        expect(output).toContain('CODEX_API_KEY');
         expect(error.status).not.toBe(0);
       }
     });
@@ -469,13 +428,7 @@ describe('scripts/run-podman.sh', () => {
       const mockBinDir = createMockPodman(testDir);
       const workspaceDir = createWorkspace(testDir);
 
-      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
-      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
-      writeFileSync(
-        join(runnerDir, 'scripts', 'run-podman.sh'),
-        readFileSync(SCRIPT_PATH, 'utf-8'),
-      );
-      chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
+      const { runnerDir } = copyRunnerLayout(testDir);
 
       try {
         execFileSync('bash', [join(runnerDir, 'scripts', 'run-podman.sh')], {
@@ -495,7 +448,7 @@ describe('scripts/run-podman.sh', () => {
       } catch (err: unknown) {
         const error = err as { stderr?: string; stdout?: string; status?: number };
         const output = (error.stderr || '') + (error.stdout || '');
-        expect(output).toContain('OPENROUTER_API_KEY is required');
+        expect(output).toContain('OPENROUTER_API_KEY');
         expect(error.status).not.toBe(0);
       }
     });
@@ -507,13 +460,7 @@ describe('scripts/run-podman.sh', () => {
       const mockBinDir = createMockPodman(testDir);
       const workspaceDir = createWorkspace(testDir);
 
-      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
-      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
-      writeFileSync(
-        join(runnerDir, 'scripts', 'run-podman.sh'),
-        readFileSync(SCRIPT_PATH, 'utf-8'),
-      );
-      chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
+      const { runnerDir } = copyRunnerLayout(testDir);
 
       const result = execFileSync(
         'bash',
@@ -543,13 +490,7 @@ describe('scripts/run-podman.sh', () => {
       const workspaceDir = createWorkspace(testDir);
       const logFile = join(testDir, 'podman-invocations.log');
 
-      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
-      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
-      writeFileSync(
-        join(runnerDir, 'scripts', 'run-podman.sh'),
-        readFileSync(SCRIPT_PATH, 'utf-8'),
-      );
-      chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
+      const { runnerDir } = copyRunnerLayout(testDir);
 
       const result = execFileSync(
         'bash',
@@ -578,13 +519,7 @@ describe('scripts/run-podman.sh', () => {
       const workspaceDir = createWorkspace(testDir);
       const logFile = join(testDir, 'podman-invocations.log');
 
-      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
-      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
-      writeFileSync(
-        join(runnerDir, 'scripts', 'run-podman.sh'),
-        readFileSync(SCRIPT_PATH, 'utf-8'),
-      );
-      chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
+      const { runnerDir } = copyRunnerLayout(testDir);
 
       execFileSync(
         'bash',
@@ -610,13 +545,7 @@ describe('scripts/run-podman.sh', () => {
       const mockBinDir = createMockPodman(testDir);
       const workspaceDir = createWorkspace(testDir);
 
-      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
-      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
-      writeFileSync(
-        join(runnerDir, 'scripts', 'run-podman.sh'),
-        readFileSync(SCRIPT_PATH, 'utf-8'),
-      );
-      chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
+      const { runnerDir } = copyRunnerLayout(testDir);
 
       const result = execFileSync(
         'bash',
@@ -642,13 +571,7 @@ describe('scripts/run-podman.sh', () => {
       const workspaceDir = createWorkspace(testDir);
       const logFile = join(testDir, 'podman-invocations.log');
 
-      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
-      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
-      writeFileSync(
-        join(runnerDir, 'scripts', 'run-podman.sh'),
-        readFileSync(SCRIPT_PATH, 'utf-8'),
-      );
-      chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
+      const { runnerDir } = copyRunnerLayout(testDir);
 
       execFileSync(
         'bash',
@@ -678,19 +601,13 @@ describe('scripts/run-podman.sh', () => {
       expect(invocations).toContain('-e OPENROUTER_API_KEY=test-openrouter-key');
     });
 
-    it('passes all runtime credentials through for ollama-droid', () => {
+    it('passes all runtime credentials through for droid with ollama backend', () => {
       const testDir = createTempDir();
       const mockBinDir = createMockPodman(testDir);
       const workspaceDir = createWorkspace(testDir);
       const logFile = join(testDir, 'podman-invocations.log');
 
-      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
-      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
-      writeFileSync(
-        join(runnerDir, 'scripts', 'run-podman.sh'),
-        readFileSync(SCRIPT_PATH, 'utf-8'),
-      );
-      chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
+      const { runnerDir } = copyRunnerLayout(testDir);
 
       execFileSync(
         'bash',
@@ -701,7 +618,8 @@ describe('scripts/run-podman.sh', () => {
             ...process.env,
             PATH: `${mockBinDir}:${process.env.PATH}`,
             HARNESS_WORKSPACE: workspaceDir,
-            HARNESS_AGENT_RUNTIME: 'ollama-droid',
+            HARNESS_AGENT_RUNTIME: 'droid',
+            HARNESS_AGENT_BACKEND: 'ollama',
             OLLAMA_HOST: 'http://localhost:11434',
             OLLAMA_MODELS: 'llama3,mistral',
             OLLAMA_API_KEY: 'test-ollama-key',
@@ -723,13 +641,7 @@ describe('scripts/run-podman.sh', () => {
       const mockBinDir = createMockPodman(testDir);
       const workspaceDir = createWorkspace(testDir);
 
-      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
-      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
-      writeFileSync(
-        join(runnerDir, 'scripts', 'run-podman.sh'),
-        readFileSync(SCRIPT_PATH, 'utf-8'),
-      );
-      chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
+      const { runnerDir } = copyRunnerLayout(testDir);
 
       const result = execFileSync(
         'bash',
@@ -764,13 +676,7 @@ describe('scripts/run-podman.sh', () => {
         symlinkSync(cmdPath, join(minimalBin, cmd));
       }
 
-      const runnerDir = join(testDir, 'ai-agentic-loop-runner');
-      mkdirSync(join(runnerDir, 'scripts'), { recursive: true });
-      writeFileSync(
-        join(runnerDir, 'scripts', 'run-podman.sh'),
-        readFileSync(SCRIPT_PATH, 'utf-8'),
-      );
-      chmodSync(join(runnerDir, 'scripts', 'run-podman.sh'), 0o755);
+      const { runnerDir } = copyRunnerLayout(testDir);
 
       try {
         execFileSync('bash', [join(runnerDir, 'scripts', 'run-podman.sh')], {

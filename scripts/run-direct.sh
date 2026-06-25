@@ -2,8 +2,8 @@
 # run-direct.sh — run the harness CLI directly against a local workspace.
 #
 # Loads environment config from the runner root .env (if present), validates
-# required variables, verifies the agent CLI is installed for non-mock
-# runtimes, then invokes the harness CLI.
+# required variables, writes workspace/config/agents.json, verifies the agent
+# CLI is installed for non-mock runtimes, then invokes the harness CLI.
 #
 # Usage:
 #   HARNESS_WORKSPACE=./workspace HARNESS_AGENT_RUNTIME=kilo KILO_API_KEY=... \
@@ -12,11 +12,16 @@
 # Environment variables:
 #   HARNESS_WORKSPACE          Path to the workspace directory (required)
 #   HARNESS_AGENT_RUNTIME      Runtime selection: mock | droid | kilo | codex | bob-shell (required)
+#   HARNESS_AGENT_BACKEND      Optional backend override (native | openrouter | ollama)
+#   HARNESS_AGENT_MODEL        Optional model override
 #   HARNESS_MAX_ITERATIONS     Optional iteration limit
 #   HARNESS_TIME_LIMIT_MINUTES Optional time limit
-#   KILO_API_KEY               Required when HARNESS_AGENT_RUNTIME=kilo
+#   KILO_API_KEY               Required when HARNESS_AGENT_RUNTIME=kilo and backend=native
+#   OPENROUTER_API_KEY         Required when backend=openrouter
+#   OLLAMA_HOST                Required when backend=ollama
+#   OLLAMA_MODELS              Required when backend=ollama
+#   OLLAMA_API_KEY             Required when backend=ollama
 #   CODEX_API_KEY              Required when HARNESS_AGENT_RUNTIME=codex
-#   OPENROUTER_API_KEY         Required when HARNESS_AGENT_RUNTIME=codex
 #   BOBSHELL_API_KEY           Required when HARNESS_AGENT_RUNTIME=bob-shell
 
 set -euo pipefail
@@ -54,33 +59,28 @@ if [ -n "${PROMPT_SOURCE:-}" ]; then
     bash "${SCRIPT_DIR}/fetch-prompt.sh" "${WORKSPACE_DIR}"
 fi
 
-# ---- Validate required env vars ----
+# ---- Validate workspace path ----
 if [ -z "${HARNESS_WORKSPACE:-}" ]; then
   error "HARNESS_WORKSPACE is required"
   exit 1
 fi
+
+if [ ! -d "${HARNESS_WORKSPACE}" ]; then
+  error "Workspace directory does not exist: ${HARNESS_WORKSPACE}"
+  exit 1
+fi
+WORKSPACE_ABS="$(cd "${HARNESS_WORKSPACE}" && pwd)"
 
 if [ -z "${HARNESS_AGENT_RUNTIME:-}" ]; then
   error "HARNESS_AGENT_RUNTIME is required (mock | droid | kilo | codex | bob-shell)"
   exit 1
 fi
 
-case "${HARNESS_AGENT_RUNTIME}" in
-  mock|droid|kilo|codex|bob-shell)
-    ;;
-  *)
-    error "Unsupported HARNESS_AGENT_RUNTIME: ${HARNESS_AGENT_RUNTIME}"
-    error "Supported values: mock, droid, kilo, codex, bob-shell"
-    exit 1
-    ;;
-esac
-
-# ---- Validate workspace path ----
-if [ ! -d "${HARNESS_WORKSPACE}" ]; then
-  error "Workspace directory does not exist: ${HARNESS_WORKSPACE}"
-  exit 1
-fi
-WORKSPACE_ABS="$(cd "${HARNESS_WORKSPACE}" && pwd)"
+# ---- Validate agent config and write workspace/config/agents.json ----
+log "Validating agent config: runtime=${HARNESS_AGENT_RUNTIME} backend=${HARNESS_AGENT_BACKEND:-default}"
+node -e "require('${RUNNER_ROOT}/dist/agent-config').validateAgentConfig(process.env.HARNESS_AGENT_RUNTIME, process.env.HARNESS_AGENT_BACKEND, process.env)"
+node -e "require('${RUNNER_ROOT}/dist/agent-config').writeAgentsJson('${WORKSPACE_ABS}', require('${RUNNER_ROOT}/dist/agent-config').buildAgentConfig(process.env.HARNESS_AGENT_RUNTIME, process.env.HARNESS_AGENT_BACKEND, process.env.HARNESS_AGENT_MODEL, process.env))"
+log "Wrote workspace/config/agents.json"
 
 # ---- Validate harness CLI ----
 HARNESS_BIN="${HARNESS_ROOT}/bin/harness"
@@ -90,36 +90,10 @@ if [ ! -f "${HARNESS_BIN}" ]; then
   exit 1
 fi
 
-# ---- Validate runtime-specific credentials ----
-if [ "${HARNESS_AGENT_RUNTIME}" = "kilo" ]; then
-  if [ -z "${KILO_API_KEY:-}" ]; then
-    error "KILO_API_KEY is required for HARNESS_AGENT_RUNTIME=kilo"
-    exit 1
-  fi
-fi
-
-if [ "${HARNESS_AGENT_RUNTIME}" = "codex" ]; then
-  if [ -z "${CODEX_API_KEY:-}" ]; then
-    error "CODEX_API_KEY is required for HARNESS_AGENT_RUNTIME=codex"
-    exit 1
-  fi
-  if [ -z "${OPENROUTER_API_KEY:-}" ]; then
-    error "OPENROUTER_API_KEY is required for HARNESS_AGENT_RUNTIME=codex"
-    exit 1
-  fi
-fi
-
-if [ "${HARNESS_AGENT_RUNTIME}" = "bob-shell" ]; then
-  if [ -z "${BOBSHELL_API_KEY:-}" ]; then
-    error "BOBSHELL_API_KEY is required for HARNESS_AGENT_RUNTIME=bob-shell"
-    exit 1
-  fi
-fi
-
 # ---- Check agent CLI presence for non-mock runtimes ----
 if [ "${HARNESS_AGENT_RUNTIME}" != "mock" ]; then
   log "Checking agent CLI presence for runtime: ${HARNESS_AGENT_RUNTIME}"
-  node -e "require('./dist/agent-cli-check').checkAgentCli(process.env.HARNESS_AGENT_RUNTIME)"
+  node -e "require('${RUNNER_ROOT}/dist/agent-cli-check').checkAgentCli(process.env.HARNESS_AGENT_RUNTIME)"
 fi
 
 # ---- Build env var arguments for the harness CLI ----
@@ -152,6 +126,17 @@ set +e
 "${HARNESS_BIN}" --workspace "${WORKSPACE_ABS}" "${@}"
 EXIT_CODE=$?
 set -e
+
+# ---- Gather results ----
+if [ -f "${WORKSPACE_ABS}/result.yaml" ]; then
+  log "Result file: ${WORKSPACE_ABS}/result.yaml"
+  STATUS_LINE="$(grep -E '^status:' "${WORKSPACE_ABS}/result.yaml" | head -1 || true)"
+  ITERATIONS_LINE="$(grep -E '^iterations:' "${WORKSPACE_ABS}/result.yaml" | head -1 || true)"
+  log "Result ${STATUS_LINE:-status: unknown}"
+  log "Result ${ITERATIONS_LINE:-iterations: unknown}"
+else
+  log "WARNING: result.yaml not found in workspace after harness exited"
+fi
 
 exit ${EXIT_CODE}
 

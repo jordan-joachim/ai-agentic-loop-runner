@@ -20,9 +20,12 @@ RUNNER_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 HARNESS_ROOT="${RUNNER_ROOT}/../ai-agentic-loop-harness"
 
 # ---- Defaults ----
-AGENT_RUNTIME="${AGENT_RUNTIME:-mock}"
+AGENT_RUNTIME="${AGENT_RUNTIME:-${HARNESS_AGENT_RUNTIME:-mock}}"
 HARNESS_IMAGE_TAG="${HARNESS_IMAGE_TAG:-harness:latest}"
 NO_CACHE="${NO_CACHE:-false}"
+# Map unified droid runtime onto AGENT_RUNTIME; HARNESS_AGENT_BACKEND selects Ollama at build time.
+AGENT_BACKEND="${AGENT_BACKEND:-${HARNESS_AGENT_BACKEND:-}}"
+INSTALL_OLLAMA="${INSTALL_OLLAMA:-false}"
 
 log() {
   echo "[setup-podman] $*"
@@ -49,12 +52,41 @@ fi
 
 # ---- Validate runtime argument ----
 case "${AGENT_RUNTIME}" in
-  mock|droid|ollama-droid|kilo|codex)
+  mock|droid|kilo|codex|bob-shell)
+    ;;
+  ollama-droid)
+    # Deprecated alias — treat as droid with Ollama backend.
+    log "WARN: AGENT_RUNTIME=ollama-droid is deprecated; using droid with backend=ollama"
+    AGENT_RUNTIME="droid"
+    AGENT_BACKEND="ollama"
     ;;
   *)
     log "ERROR: unsupported AGENT_RUNTIME: ${AGENT_RUNTIME}"
-    log "Supported values: mock, droid, ollama-droid, kilo, codex"
+    log "Supported values: mock, droid, kilo, codex, bob-shell"
     exit 1
+    ;;
+esac
+
+# ---- Select backend-specific build args ----
+RUNTIME_BACKEND_ARG=""
+case "${AGENT_RUNTIME}" in
+  droid)
+    RUNTIME_BACKEND_ARG="DROID_BACKEND=${AGENT_BACKEND:-openrouter}"
+    if [ "${AGENT_BACKEND:-openrouter}" = "ollama" ]; then
+      INSTALL_OLLAMA="true"
+    fi
+    ;;
+  kilo)
+    RUNTIME_BACKEND_ARG="KILO_BACKEND=${AGENT_BACKEND:-native}"
+    if [ "${AGENT_BACKEND:-native}" = "ollama" ]; then
+      INSTALL_OLLAMA="true"
+    fi
+    ;;
+  codex)
+    RUNTIME_BACKEND_ARG="CODEX_BACKEND=${AGENT_BACKEND:-openrouter}"
+    if [ "${AGENT_BACKEND:-openrouter}" = "ollama" ]; then
+      INSTALL_OLLAMA="true"
+    fi
     ;;
 esac
 
@@ -69,17 +101,27 @@ if [ "${NO_CACHE}" != "true" ]; then
 fi
 
 # ---- Build the image ----
-log "Building image ${HARNESS_IMAGE_TAG} with AGENT_RUNTIME=${AGENT_RUNTIME}"
+log "Building image ${HARNESS_IMAGE_TAG} with AGENT_RUNTIME=${AGENT_RUNTIME}${RUNTIME_BACKEND_ARG:+ ${RUNTIME_BACKEND_ARG}}${INSTALL_OLLAMA=true:+ INSTALL_OLLAMA=true}${HARNESS_AGENT_MODEL:+ MODEL=${HARNESS_AGENT_MODEL}}"
 
 NO_CACHE_FLAG=()
 if [ "${NO_CACHE}" = "true" ]; then
   NO_CACHE_FLAG=(--no-cache)
 fi
 
+BUILD_ARGS=(
+  --build-arg "AGENT_RUNTIME=${AGENT_RUNTIME}"
+)
+if [ -n "${RUNTIME_BACKEND_ARG}" ]; then
+  BUILD_ARGS+=(--build-arg "${RUNTIME_BACKEND_ARG}")
+fi
+if [ "${INSTALL_OLLAMA}" = "true" ]; then
+  BUILD_ARGS+=(--build-arg "INSTALL_OLLAMA=true")
+fi
+
 podman build \
   "${NO_CACHE_FLAG[@]}" \
   -t "${HARNESS_IMAGE_TAG}" \
-  --build-arg "AGENT_RUNTIME=${AGENT_RUNTIME}" \
+  "${BUILD_ARGS[@]}" \
   -f "${HARNESS_CONTAINERFILE}" \
   "${HARNESS_ROOT}"
 
